@@ -1,0 +1,483 @@
+"""Concrete scanners: CodeQL · Psalm · Wolfee."""
+
+from __future__ import annotations
+
+import json
+import logging
+import shutil
+import subprocess
+import tempfile
+import time
+from collections import Counter
+from pathlib import Path
+from xml.sax.saxutils import quoteattr
+
+from ..config import CONFIG_DIR
+from .base import Availability, Scanner, ScannerError, ScanResult
+from .opengrep import OpengrepScanner
+
+log = logging.getLogger(__name__)
+
+_CODEQL_LANGS = {
+    ".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "javascript",
+    ".tsx": "javascript", ".java": "java", ".kt": "java", ".go": "go", ".rb": "ruby",
+    ".cs": "csharp", ".cpp": "cpp", ".cc": "cpp", ".c": "cpp", ".h": "cpp",
+    ".swift": "swift", ".rs": "rust",
+}
+
+_SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "target", "build", "dist", "__pycache__"}
+
+
+def exclude_directory(name: str) -> None:
+    """Keep the scanners out of a directory for the rest of this process."""
+    name = (name or "").strip().strip("/")
+    if not name or "/" in name:
+        return
+    _SKIP_DIRS.add(name)
+
+class WolfeeScanner(Scanner):
+    """Wolfee SCA scan with source-aware dependency reachability."""
+
+    name = "wolfee"
+
+    @property
+    def writes_stdout(self) -> bool:
+        return False
+
+    @property
+    def success_exit_codes(self) -> frozenset[int]:
+        return frozenset(range(256))
+
+    def _native_version_argv(self) -> list[str] | None:
+        return [self.resolve_binary("wolfee"), "version"]
+
+    _toolchain: dict[str, str] = {}
+
+    def _scan_env(self, target: Path) -> dict[str, str]:
+        return {**super()._scan_env(target), **self._toolchain}
+
+    def scan(self, target: Path, out_dir: Path) -> ScanResult:
+        from ..sca import gotoolchain
+
+        self._toolchain = gotoolchain.env_for(Path(target).resolve())
+        result = self._scan(target, out_dir)
+        if not result.ok and self._toolchain:
+            wanted, self._toolchain = self._toolchain["GOTOOLCHAIN"], {}
+            log.warning("wolfee failed with GOTOOLCHAIN=%s; scanning again with the image's Go", wanted)
+            result = self._scan(target, out_dir)
+            result.note = (f"stdlib проверена по {gotoolchain.local_release() or 'Go образа'}, "
+                           f"а не по {wanted} проекта: с ним wolfee не отработал")
+        return result
+
+    def _scan(self, target: Path, out_dir: Path) -> ScanResult:
+        from ..sca.install import composer_vendor
+
+        target = Path(target).resolve()
+        if not composer_vendor(target):
+            return super().scan(target, out_dir)
+        with tempfile.TemporaryDirectory(prefix="wolfee-") as work:
+            view = Path(work) / target.name
+
+            def ignore(directory: str, names: list[str]) -> set[str]:
+                return {"vendor", ".git"} & set(names) if Path(directory) == target else set()
+
+            shutil.copytree(target, view, ignore=ignore, symlinks=True)
+            log.info("wolfee: scanning a copy without vendor/ (installed Composer tree)")
+            return super().scan(view, out_dir)
+
+    def _native_scan_argv(self, target: Path, out_file: Path) -> list[str]:
+        from ..sca.sbom import type_args
+
+        return [
+            self.resolve_binary("wolfee"), "scan", "--reachable", str(target),
+            "--format", "sarif", "--output", str(out_file), "--quiet",
+            "--cdxgen-arg=--no-install-deps",
+            *(f"--cdxgen-arg={arg}" for arg in type_args()),
+        ]
+
+    def _docker_scan_argv(self, target: Path, out_file: Path) -> list[str]:
+        raise ScannerError("wolfee must run natively; configure binary: with the wolfee executable path")
+
+
+def _map_overlay_paths(report: Path | None) -> None:
+    """Findings Psalm made in an overlay copy belong to the original file."""
+    from ..sca.psalm_api import original_path
+
+    if report is None or not Path(report).is_file():
+        return
+    try:
+        document = json.loads(Path(report).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    changed = False
+
+    def walk(node) -> None:
+        nonlocal changed
+        if isinstance(node, dict):
+            location = node.get("artifactLocation")
+            if isinstance(location, dict) and (original := original_path(str(location.get("uri") or ""))):
+                location["uri"] = original
+                changed = True
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(document)
+    if changed:
+        Path(report).write_text(json.dumps(document), encoding="utf-8")
+
+
+class PsalmScanner(Scanner):
+    """Psalm interprocedural taint analysis for PHP."""
+
+    name = "psalm"
+
+    def scan(self, target: Path, out_dir: Path) -> ScanResult:
+        target = Path(target).resolve()
+        try:
+            Path(out_dir).mkdir(parents=True, exist_ok=True)
+            (Path(out_dir) / f"{self.name}{self.output_suffix}").unlink(missing_ok=True)
+        except OSError as exc:
+            return ScanResult(scanner=self.name, ok=False, error=f"cannot clear previous Psalm report: {exc}")
+        from ..sca import psalm_api
+
+        result = self._scan_autonomous(target, out_dir)
+        for _ in range(psalm_api.MAX_UNREADABLE):
+            if result.ok or not (skipped := psalm_api.exclude_crashed_file(
+                    target, f"{result.error or ''}\n{result.stderr_tail}")):
+                break
+            log.warning("psalm: %s left out — Psalm cannot read it; scanning again", skipped)
+            result = self._scan_autonomous(target, out_dir)
+        if result.ok and (skipped_files := psalm_api.unreadable_files(target)):
+            _map_overlay_paths(result.output_path)
+            result.note = ("Psalm падает на докблоках этих файлов — их код проверен без докблоков, "
+                           "исправьте в них аннотации: " + ", ".join(skipped_files))
+        return result
+
+    def _scan_autonomous(self, target: Path, out_dir: Path) -> ScanResult:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".xml", prefix="psalm-autonomous-", dir=out_dir,
+            encoding="utf-8", delete=False,
+        ) as handle:
+            autoload = target / "vendor" / "autoload.php"
+            skip = [target / name for name in ("vendor", "node_modules", "var/cache")
+                    if (target / name).is_dir()]
+            ignored = "".join(
+                f'      <directory name={quoteattr(str(path))} />\n' for path in skip)
+            from ..sca.psalm_api import overlay_dir, unreadable_files
+            ignored += "".join(
+                f'      <file name={quoteattr(str(target / name))} />\n'
+                for name in unreadable_files(target) if (target / name).is_file())
+            overlay = overlay_dir(target)
+            stubs = CONFIG_DIR / "psalm" / "framework-taint.phpstub"
+            handle.write(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<psalm xmlns="https://getpsalm.org/schema/config" errorLevel="8"'
+                + (f' autoloader={quoteattr(str(autoload))}' if autoload.is_file() else "")
+                + '>\n'
+                '  <projectFiles>\n'
+                f'    <directory name={quoteattr(str(target))} />\n'
+                + (f'    <directory name={quoteattr(str(overlay))} />\n' if overlay is not None else "")
+                + (f'    <ignoreFiles>\n{ignored}    </ignoreFiles>\n' if ignored else "")
+                + '  </projectFiles>\n'
+                + (f'  <stubs>\n    <file name={quoteattr(str(stubs))} />\n  </stubs>\n'
+                   if stubs.is_file() else "")
+                + '</psalm>\n'
+            )
+            temporary = Path(handle.name)
+        self._runtime_config = temporary
+        self._runtime_root = target
+        try:
+            return super().scan(target, out_dir)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
+    @property
+    def writes_stdout(self) -> bool:
+        return False
+
+    @property
+    def success_exit_codes(self) -> frozenset[int]:
+        """0 clean · 1/2 issues found; `report_health` is the real gate."""
+        return frozenset({0, 1, 2})
+
+    def _native_version_argv(self) -> list[str] | None:
+        return [self.resolve_binary("psalm"), "--version"]
+
+    def _probe_docker(self) -> Availability:
+        return Availability(
+            False, detail="psalm is native-only here (autonomous analysis uses the local Psalm binary)"
+        )
+
+    def report_health(self, path: Path) -> str | None:
+        """Zero taint findings is a real clean result, not a broken run."""
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return f"report is not readable JSON: {exc}"
+        if not isinstance(doc, dict) or not isinstance(doc.get("runs"), list) or not doc["runs"]:
+            return "report is not SARIF"
+        for run in doc["runs"]:
+            if not isinstance(run, dict) or not isinstance(run.get("results"), list):
+                return "SARIF run has no results array"
+            for inv in run.get("invocations") or []:
+                if inv.get("executionSuccessful") is False:
+                    detail = (inv.get("exitCodeDescription") or "").strip()
+                    return f"SARIF reports executionSuccessful=false{': ' + detail if detail else ''}"
+        return None
+
+    def _native_scan_argv(self, target: Path, out_file: Path) -> list[str]:
+        config = getattr(self, "_runtime_config", None)
+        root = getattr(self, "_runtime_root", target)
+        return [
+            self.resolve_binary("psalm"),
+            *( [f"--config={config}"] if config else []),
+            "--taint-analysis",
+            f"--report={out_file.resolve()}",
+            f"--root={root}",
+            "--no-progress",
+            "--no-cache",
+            "--no-diff",
+        ]
+
+    def _docker_scan_argv(self, target: Path, out_file: Path) -> list[str]:
+        raise NotImplementedError
+
+
+class CodeQLScanner(Scanner):
+    """CodeQL — the only two-phase tool here."""
+
+    name = "codeql"
+
+    def _native_version_argv(self) -> list[str] | None:
+        return [self.resolve_binary("codeql"), "version", "--format", "terse"]
+
+    def _probe_docker(self) -> Availability:
+        return Availability(False, detail="codeql is native-only here (two-phase, needs a writable database dir)")
+
+    def _native_scan_argv(self, target: Path, out_file: Path) -> list[str]:
+        raise NotImplementedError
+
+    def _docker_scan_argv(self, target: Path, out_file: Path) -> list[str]:
+        raise NotImplementedError
+
+    def detect_languages(self, target: Path) -> list[str]:
+        """Every CodeQL language present in the tree, most-frequent first."""
+        if self.cfg.language:
+            return [self.cfg.language]
+        counts: Counter[str] = Counter()
+        for path in target.rglob("*"):
+            if not path.is_file() or _SKIP_DIRS & set(path.parts):
+                continue
+            if lang := _CODEQL_LANGS.get(path.suffix.lower()):
+                counts[lang] += 1
+        return [lang for lang, _ in counts.most_common()]
+
+
+    MANIFEST = ".codeql-databases.json"
+
+    @staticmethod
+    def database_dir(out_dir: Path | str, language: str) -> Path:
+        """Where this language's database lives."""
+        return Path(out_dir) / f".codeql-db-{language}"
+
+    @classmethod
+    def databases(cls, out_dir: Path | str) -> dict[str, Path]:
+        """Language → database, as recorded by the scan that built them."""
+        manifest = Path(out_dir) / cls.MANIFEST
+        try:
+            recorded = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        found = {}
+        for language, where in (recorded or {}).items():
+            path = Path(where)
+            if (path / "codeql-database.yml").is_file():
+                found[str(language)] = path
+        return found
+
+    @staticmethod
+    def _merge_runs(docs: list[dict]) -> dict:
+        """Fold several single-language SARIF documents into one multi-run file."""
+        return {
+            "version": docs[0].get("version", "2.1.0"),
+            "$schema": docs[0].get("$schema", "https://json.schemastore.org/sarif-2.1.0.json"),
+            "runs": [run for doc in docs for run in (doc.get("runs") or [])],
+        }
+
+    STANDARD_SUITE = "codeql/{language}-queries:codeql-suites/{language}-security-extended.qls"
+
+    def _installed_packs(self, exe: str) -> set[str] | None:
+        """Pack names this CodeQL resolves; None when it cannot say."""
+        from ..sca.codeql_reach import pack_dirs, packs_flag
+
+        cached = getattr(self, "_packs_cache", None)
+        if cached is not None:
+            return cached or None
+        packs: set[str] = set()
+        try:
+            proc = subprocess.run([exe, "resolve", "qlpacks", "--format=json", packs_flag()], capture_output=True,
+                                  text=True, timeout=120, encoding="utf-8", errors="replace", check=False)
+            if proc.returncode == 0:
+                packs = set(json.loads(proc.stdout or "{}"))
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            pass
+        if packs:
+            for root in [*pack_dirs(), str(Path.home() / ".codeql" / "packages")]:
+                for manifest in Path(root).glob("*/*/*/qlpack.yml"):
+                    packs.add(f"{manifest.parent.parent.parent.name}/{manifest.parent.parent.name}")
+        self._packs_cache = packs
+        return packs or None
+
+    @staticmethod
+    def _pack_of(spec: str) -> str:
+        """`scope/name` of a query or model pack reference (`scope/name@1.0:path`)."""
+        return spec.split(":", 1)[0].split("@", 1)[0]
+
+    def _query_plan(self, exe: str, language: str) -> tuple[list[str], list[str], list[str]]:
+        """(suites, extra model packs, what was left out and why) for one language."""
+        standard = self.STANDARD_SUITE.format(language=language)
+        suites = list((self.cfg.suites or {}).get(language) or [standard])
+        models = list((self.cfg.model_packs or {}).get(language) or [])
+        installed = self._installed_packs(exe)
+        skipped: list[str] = []
+        if installed is not None:
+            for spec in [*suites, *models]:
+                if self._pack_of(spec) not in installed and f"{self._pack_of(spec)} не установлен" not in skipped:
+                    skipped.append(f"{self._pack_of(spec)} не установлен")
+            suites = [s for s in suites if self._pack_of(s) in installed] or [standard]
+            models = [m for m in models if self._pack_of(m) in installed]
+        return suites, models, skipped
+
+    def _run_phase(self, phase: str, argv: list[str]) -> str | None:
+        try:
+            proc = subprocess.run(
+                argv, capture_output=True, text=True,
+                timeout=self.cfg.timeout_s, encoding="utf-8", errors="replace",
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return f"'{phase}' timed out after {self.cfg.timeout_s}s (a compiled language needs a working build)"
+        except OSError as exc:
+            return str(exc)
+        if proc.returncode != 0:
+            tail = "\n".join((proc.stderr or "").strip().splitlines()[-6:])
+            return f"'{phase}' exited {proc.returncode}: {tail[:300]}"
+        return None
+
+    def _analyze_one(self, exe: str, target: Path, out_dir: Path, language: str, part: Path,
+                     notes: list[str] | None = None) -> str | None:
+        """Create a database for one language and analyze it into `part`."""
+        from ..sca.codeql_reach import model_flags, packs_flag
+
+        db_dir = self.database_dir(out_dir, language)
+        shutil.rmtree(db_dir, ignore_errors=True)
+        create = [
+            exe, "database", "create", str(db_dir),
+            f"--language={language}", f"--source-root={target}", "--overwrite",
+        ]
+        if err := self._run_phase("database create", create):
+            return err
+
+        suites, models, skipped = self._query_plan(exe, language)
+        if skipped and notes is not None:
+            notes.append(f"{language}: " + "; ".join(skipped))
+
+        def analyze(queries: list[str], extra_models: list[str], ours: bool) -> list[str]:
+            models = model_flags(language, extra_models, ours)
+            return [
+                exe, "database", "analyze", str(db_dir), *queries,
+                "--format=sarif-latest", f"--output={part}",
+                *(models or [packs_flag()]),
+            ]
+
+        standard = self.STANDARD_SUITE.format(language=language)
+        attempts = [(suites, models, True), ([standard], [], True), ([standard], [], False)]
+        err = None
+        for number, (queries, extra, ours) in enumerate(dict.fromkeys(
+                (tuple(q), tuple(m), o) for q, m, o in attempts)):
+            err = self._run_phase("database analyze", analyze(list(queries), list(extra), ours))
+            if not err:
+                if number and notes is not None:
+                    notes.append(f"{language}: " + ("дополнительные наборы не выполнились — только стандартные"
+                                                    if ours else "модели агента не загрузились — стандартные без них"))
+                break
+        if err:
+            return err
+        return None if part.is_file() else "analyze produced no SARIF"
+
+    def scan(self, target: Path, out_dir: Path) -> ScanResult:
+        avail = self.available()
+        if not avail.usable:
+            return ScanResult(scanner=self.name, ok=False, error=str(avail))
+
+        target = Path(target).resolve()
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_file = out_dir / f"{self.name}{self.output_suffix}"
+
+        languages = self.detect_languages(target)
+        if not languages:
+            return ScanResult(
+                scanner=self.name, ok=False,
+                error="could not detect a CodeQL language in the target; set `language` in the scanner profile",
+            )
+
+        exe = self.resolve_binary("codeql")
+        started = time.monotonic()
+        docs: list[dict] = []
+        failures: list[str] = []
+        notes: list[str] = []
+        built: dict[str, str] = {}
+        last_cmd = [exe, "database", "analyze"]
+        for language in languages:
+            part = out_dir / f".codeql-{language}.sarif.json"
+            part.unlink(missing_ok=True)
+            last_cmd = [exe, "database", "analyze", f"--language={language}",
+                        *((self.cfg.suites or {}).get(language) or [self.STANDARD_SUITE.format(language=language)])]
+            if err := self._analyze_one(exe, target, out_dir, language, part, notes):
+                failures.append(f"{language}: {err}")
+                continue
+            built[language] = str(self.database_dir(out_dir, language))
+            try:
+                docs.append(json.loads(part.read_text(encoding="utf-8")))
+            except (OSError, ValueError) as exc:
+                failures.append(f"{language}: unreadable SARIF ({exc})")
+            finally:
+                part.unlink(missing_ok=True)
+
+        duration = time.monotonic() - started
+        note = "; ".join(failures)
+        if built:
+            (out_dir / self.MANIFEST).write_text(
+                json.dumps(built, indent=2), encoding="utf-8")
+            log.info("codeql databases kept for the dependency phase: %s",
+                     ", ".join(sorted(built)))
+        if not docs:
+            return ScanResult(
+                scanner=self.name, ok=False, command=last_cmd, mode="native",
+                version=avail.version, duration_s=duration,
+                error=note or "analyze produced no SARIF",
+            )
+
+        out_file.write_text(json.dumps(self._merge_runs(docs)), encoding="utf-8")
+        return ScanResult(
+            scanner=self.name, ok=out_file.is_file(),
+            output_path=out_file if out_file.is_file() else None,
+            findings=self.count_findings(out_file) if out_file.is_file() else 0,
+            duration_s=duration, command=last_cmd, version=avail.version, mode="native",
+            error=None if out_file.is_file() else "failed to write merged SARIF",
+            stderr_tail=f"partial: {note}" if failures else "",
+            note="; ".join(notes),
+        )
+
+
+REGISTRY: dict[str, type[Scanner]] = {
+    "wolfee": WolfeeScanner,
+    "codeql": CodeQLScanner,
+    "opengrep": OpengrepScanner,
+    "psalm": PsalmScanner,
+}

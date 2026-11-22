@@ -1,0 +1,68 @@
+enabled: true
+reachability: true
+
+required_languages: [php, python, go, typescript]
+
+max_definitions: 4
+max_callers: 8
+
+startup_timeout_s: 120
+index_timeout_s: 90
+request_timeout_s: 20
+search_timeout_s: 60
+
+servers:
+  python:
+    command: [pylsp]
+    language_id: python
+    extensions: [".py"]
+
+  php:
+    command: [php, "${PHPACTOR_PHAR:-/opt/phpactor.phar}", language-server]
+    language_id: php
+    extensions: [".php"]
+
+  typescript:
+    command: [typescript-language-server, --stdio]
+    language_id: typescript
+    extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
+
+  go:
+    command: [gopls]
+    language_id: go
+    extensions: [".go"]
+
+  c-cpp:
+    command: [clangd]
+    language_id: cpp
+    extensions: [".c", ".h", ".cc", ".cp", ".cpp", ".cxx", ".c++"]
+
+  csharp:
+    command: [OmniSharp, --languageserver, --stdio]
+    language_id: csharp
+    extensions: [".cs"]
+
+  java:
+    command: [jdtls]
+    language_id: java
+    extensions: [".java"]
+
+  kotlin:
+    command: [kotlin-language-server]
+    language_id: kotlin
+    extensions: [".kt"]
+
+  ruby:
+    command: [solargraph, stdio]
+    language_id: ruby
+    extensions: [".rb"]
+
+  rust:
+    command: [rust-analyzer]
+    language_id: rust
+    extensions: [".rs"]
+
+  swift:
+    command: [sourcekit-lsp]
+    language_id: swift
+    extensions: [".swift"]

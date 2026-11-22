@@ -1,0 +1,1030 @@
+"""Self-contained HTML report — the artifact an AppSec engineer actually opens."""
+
+from __future__ import annotations
+
+import html
+from collections import Counter
+from collections.abc import Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+
+from .. import review
+from ..models import TriageRecord, VerdictLabel
+from ..pipeline import TriageRun
+from . import upgrades as upgrades_mod
+
+_TABLE_CSS = """
+table.findings{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:13px;
+  margin:.75rem 0 1.75rem;border:1px solid var(--line-strong)}
+table.findings th{text-align:left;padding:.6rem .7rem;background:var(--head-bg);color:var(--fg);
+  border-bottom:2px solid var(--line-strong);position:sticky;top:0;z-index:1}
+table.findings td{padding:.7rem .7rem;vertical-align:top;overflow-wrap:anywhere;
+  border-top:1px solid var(--line-strong)}
+table.findings tbody tr:first-child td{border-top:0}
+table.findings th+th,table.findings td+td{border-left:1px solid var(--line)}
+table.findings tr.yes{background:var(--row-yes)}
+table.findings tr.no{background:var(--row-no)}
+table.findings tr.maybe{background:var(--row-maybe)}
+table.findings tr.yes td:first-child{box-shadow:inset 4px 0 var(--confirmed)}
+table.findings tr.maybe td:first-child{box-shadow:inset 4px 0 var(--unknown)}
+table.findings tr.no td:first-child{box-shadow:inset 4px 0 var(--fp)}
+table.findings tbody tr:hover{background:var(--row-hover)}
+td.answer{font-weight:600;overflow-wrap:normal}
+td.answer.yes{color:var(--confirmed)}
+td.answer.no{color:var(--fp)}
+td.answer.maybe{color:var(--unknown)}
+table.findings .kind{color:var(--muted);font-size:11px}
+table.findings .trace,table.findings .why{color:var(--muted);font-size:12px}
+table.findings .ext-cell,table.findings .cond-cell{font-size:12px}
+span.ext{display:inline-block;padding:1px 6px;border-radius:4px;background:var(--info-bg);
+  color:var(--info-fg);font-weight:600;font-size:11px}
+table.findings .prio-cell{text-align:center}
+.prio{font-weight:700;font-size:12px;padding:2px 8px;border-radius:999px;cursor:help}
+.prio.p1{background:var(--confirmed);color:var(--bg)}
+.prio.p2{background:var(--yes-bg);color:var(--confirmed)}
+.prio.p3{background:var(--maybe-bg);color:var(--unknown)}
+.prio.p4{background:var(--chip-bg);color:var(--muted)}
+.section-note{color:var(--muted);font-size:13px;margin:.2rem 0 .6rem}
+.tallies{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem}
+.tally{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--chip-bg);color:var(--fg)}
+.tally.yes{background:var(--yes-bg);color:var(--confirmed)}
+.tally.no{background:var(--no-bg);color:var(--fp)}
+.tally.maybe{background:var(--maybe-bg);color:var(--unknown)}
+span.cond{display:inline-block;padding:1px 6px;border-radius:4px;font-weight:600;font-size:11px}
+span.cond.holds{background:var(--yes-bg);color:var(--confirmed)}
+span.cond.absent{background:var(--no-bg);color:var(--fp)}
+span.cond.outside{background:var(--maybe-bg);color:var(--unknown)}
+table.findings .cond-hits{color:var(--muted);font-size:11px}
+table.findings .flaw{display:block;color:var(--fg);margin-bottom:.25rem}
+table.findings .cond-need{display:block;color:var(--muted);font-size:11px}
+"""
+
+_COV_CSS = """
+.cov{padding:.85rem 1.1rem;border-radius:10px;margin:1.1rem 0;line-height:1.5;color:var(--fg);
+  border:1px solid var(--line)}
+.cov.ok{background:var(--no-bg);border-color:var(--fp)}
+.cov.bad{background:var(--yes-bg);border-color:var(--confirmed)}
+.cov.unknown,.cov.warn{background:var(--maybe-bg);border-color:var(--unknown)}
+.cov ul{margin:.5rem 0 .5rem 1.25rem}
+"""
+
+_TABLE_COLUMNS = (
+    ("Приоритет", 7), ("Что", 14), ("Уязвимо", 8), ("Где", 11), ("Трасса", 20),
+    ("Вне кода", 12), ("Почему", 13), ("В чём уязвимость", 15),
+)
+
+_ORDER = {VerdictLabel.confirmed: 0, VerdictLabel.unknown: 1, VerdictLabel.false_positive: 2}
+
+_LIGHT = """color-scheme:light;--bg:#fff;--fg:#16181d;--muted:#5d6570;--line:#e3e6ea;--card:#fff;
+--confirmed:#c0392b;--unknown:#9a6700;--fp:#1a7f37;--accent:#2b6cb0;
+--yes-bg:#ffebe9;--no-bg:#dafbe1;--maybe-bg:#fff8c5;--info-bg:#ddf4ff;--info-fg:#0969da;--chip-bg:#eef1f4;
+--row-yes:#fff7f6;--row-no:#f6fff8;--row-maybe:#fffdf2;--row-hover:#f2f5f8;--head-bg:#f3f5f7;--line-strong:#cfd6dd;
+--on-kind:#fff;--k-sca:#0f766e;--k-sast:#7c3aed;--k-config:#64748b;--k-license:#b45309;--k-business:#c2410c"""
+
+_DARK = """color-scheme:dark;--bg:#14161a;--fg:#e8eaed;--muted:#9aa3af;
+--line:#2a2f37;--card:#1b1e24;--confirmed:#ff7b70;--unknown:#e2b33c;--fp:#5fcf8e;--accent:#6aa9f0;
+--yes-bg:rgba(255,123,112,.14);--no-bg:rgba(95,207,142,.13);--maybe-bg:rgba(226,179,60,.14);
+--info-bg:rgba(106,169,240,.16);--info-fg:#8cbcf5;--chip-bg:rgba(255,255,255,.08);
+--row-yes:rgba(255,123,112,.06);--row-no:rgba(95,207,142,.04);--row-maybe:rgba(226,179,60,.05);
+--row-hover:rgba(255,255,255,.05);--head-bg:#1d2127;--line-strong:#3a414b;
+--on-kind:#0b0d10;--k-sca:#2dd4bf;--k-sast:#a78bfa;--k-config:#94a3b8;--k-license:#fbbf24;--k-business:#fb923c"""
+
+_THEME_CSS = (
+    f":root{{{_LIGHT}}}"
+    f"@media (prefers-color-scheme:dark){{:root:not([data-theme=light]){{{_DARK}}}}}"
+    f":root[data-theme=dark]{{{_DARK}}}"
+)
+
+_THEME_SWITCH = """<div class="theme" role="group" aria-label="Тема">
+<button type="button" data-set="auto">Авто</button><button type="button" data-set="light">Светлая</button><button type="button" data-set="dark">Тёмная</button>
+</div>"""
+
+_THEME_JS = """(function(){
+var KEY="appsec-report-theme",root=document.documentElement;
+function saved(){try{return localStorage.getItem(KEY)||"auto"}catch(e){return "auto"}}
+function apply(mode){
+  if(mode==="light"||mode==="dark"){root.setAttribute("data-theme",mode)}else{root.removeAttribute("data-theme")}
+  var buttons=document.querySelectorAll(".theme button");
+  for(var i=0;i<buttons.length;i++){buttons[i].setAttribute("aria-pressed",String(buttons[i].getAttribute("data-set")===mode))}
+}
+apply(saved());
+document.addEventListener("DOMContentLoaded",function(){
+  apply(saved());
+  var buttons=document.querySelectorAll(".theme button");
+  for(var i=0;i<buttons.length;i++){buttons[i].addEventListener("click",function(){
+    var mode=this.getAttribute("data-set");
+    try{localStorage.setItem(KEY,mode)}catch(e){}
+    apply(mode);
+  })}
+});
+})();"""
+
+_CSS = """
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+.theme{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;flex:none}
+.theme button{font:inherit;font-size:12px;padding:.3rem .8rem;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.theme button+button{border-left:1px solid var(--line-strong)}
+.theme button[aria-pressed=true]{background:var(--chip-bg);color:var(--fg);font-weight:600}
+*{box-sizing:border-box}
+body{margin:0;padding:2rem 1.25rem;background:var(--bg);color:var(--fg);
+font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1320px;margin:0 auto}
+h1{font-size:1.5rem;margin:0 0 .25rem}
+.sub{color:var(--muted);margin:0 0 1.5rem;font-size:.9rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin-bottom:2rem}
+.card{border:1px solid var(--line);border-radius:10px;padding:.85rem 1rem;background:var(--card)}
+.card .n{font-size:1.6rem;font-weight:650;line-height:1.2}
+.card .l{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+details{border:1px solid var(--line);border-radius:10px;margin-bottom:.6rem;background:var(--card);overflow:hidden}
+summary{cursor:pointer;padding:.7rem .9rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+summary::-webkit-details-marker{display:none}
+.badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.confirmed{color:var(--confirmed)}.unknown{color:var(--unknown)}.false_positive{color:var(--fp)}
+.badge.confirmed{background:var(--yes-bg)}.badge.unknown{background:var(--maybe-bg)}
+.badge.false_positive{background:var(--no-bg)}
+.path{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;color:var(--muted);
+overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.cwe{font-size:.78rem;font-weight:600;color:var(--accent)}
+.body{padding:0 .9rem .9rem;border-top:1px solid var(--line)}
+details.k-dependency{border-bottom:4px solid var(--k-sca)}
+details.k-weakness{border-bottom:4px solid var(--k-sast)}
+details.k-misconfiguration{border-bottom:4px solid var(--k-config)}
+details.k-license{border-bottom:4px solid var(--k-license)}
+details.k-business_logic{border-bottom:4px solid var(--k-business)}
+.ktag{font-size:.68rem;font-weight:800;letter-spacing:.08em;padding:.12rem .5rem;border-radius:4px;
+color:var(--on-kind);white-space:nowrap;margin-left:auto}
+.ktag.k-dependency,.kfoot.k-dependency{background:var(--k-sca)}
+.ktag.k-weakness,.kfoot.k-weakness{background:var(--k-sast)}
+.ktag.k-misconfiguration,.kfoot.k-misconfiguration{background:var(--k-config)}
+.ktag.k-license,.kfoot.k-license{background:var(--k-license)}
+.ktag.k-business_logic,.kfoot.k-business_logic{background:var(--k-business)}
+.kfoot{margin:.9rem -.9rem -.9rem;padding:.35rem .9rem;color:var(--on-kind);font-size:.75rem;font-weight:700;
+letter-spacing:.04em}
+.kfoot span{font-weight:400;opacity:.9;margin-left:.4rem}
+.body h4{margin:.9rem 0 .3rem;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+pre{background:rgba(127,127,127,.09);padding:.6rem .75rem;border-radius:7px;overflow-x:auto;
+font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;margin:0}
+ul{margin:.2rem 0;padding-left:1.2rem}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem .9rem;color:var(--muted);font-size:.75rem;margin-top:.9rem;
+padding-top:.6rem;border-top:1px dashed var(--line)}
+.override{border-left:3px solid var(--unknown);padding-left:.7rem;margin:.3rem 0;font-size:.85rem}
+table{border-collapse:collapse;width:100%;font-size:.85rem;margin-bottom:2rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}
+h2{font-size:1rem;margin:2rem 0 .7rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
+.note{color:var(--muted);font-size:.85rem}
+.sym{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;color:var(--accent);
+background:rgba(127,127,127,.12);padding:.1rem .4rem;border-radius:4px;white-space:nowrap}
+.kind{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.loc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.75rem;color:var(--muted)}
+.conf{font-variant-numeric:tabular-nums;font-weight:600;font-size:.85rem;cursor:help}
+.blocking{border-left:3px solid var(--accent);padding-left:.7rem;font-style:italic}
+.flowlist{list-style:none;padding:0;margin:.4rem 0}
+.flow{border-left:3px solid var(--line);padding:.5rem 0 .5rem .8rem;margin-left:.4rem;position:relative}
+.flow.source{border-left-color:var(--confirmed)}
+.flow.sink{border-left-color:var(--confirmed)}
+.flow.sanitizer{border-left-color:var(--fp)}
+.flow.unverified{opacity:.62;border-left-style:dashed}
+.flow p{margin:.3rem 0 0;font-size:.87rem}
+.flow pre{margin:.35rem 0 0}
+.flowhead{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.role{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.taint{font-size:.68rem;padding:.05rem .4rem;border-radius:999px;border:1px solid currentColor}
+.taint.tainted{color:var(--confirmed)}.taint.clean{color:var(--fp)}
+.brief{border:1px solid var(--accent);border-radius:8px;padding:.2rem .9rem .8rem;margin:.9rem 0;
+background:rgba(43,108,176,.06)}
+.brief h4{color:var(--accent)}
+.q{font-weight:600;margin:.5rem 0 .3rem}
+.implies{font-size:.85rem;color:var(--muted);margin:.3rem 0 0}
+.questions{padding-left:1.2rem}
+.questions>li{margin-bottom:.8rem}
+.warn{font-size:.68rem;color:var(--unknown);border:1px dashed currentColor;padding:.05rem .4rem;border-radius:999px}
+ol.why{list-style:none;margin:.4rem 0 0;padding:0;counter-reset:st}
+ol.why>li{counter-increment:st;position:relative;padding:.1rem 0 .7rem 1.7rem;
+border-left:2px solid var(--line);margin-left:.45rem}
+ol.why>li:last-child{border-left-color:transparent;padding-bottom:.1rem}
+ol.why>li::before{content:counter(st);position:absolute;left:-.62rem;top:0;width:1.15rem;height:1.15rem;
+border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--muted);
+font-size:.62rem;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+ol.why li.analyzer::before{border-color:var(--accent);color:var(--accent)}
+ol.why li.audit::before{border-color:var(--fp);color:var(--fp)}
+ol.why li.checks::before{border-color:var(--unknown);color:var(--unknown)}
+ol.why .steptitle{display:block;font-size:.69rem;text-transform:uppercase;letter-spacing:.05em;
+color:var(--muted);margin-bottom:.15rem}
+ol.why p{margin:.15rem 0;font-size:.87rem}
+ol.why ul{margin:.25rem 0;padding-left:1.1rem}
+ol.why li ul li{font-size:.83rem;margin:.12rem 0}
+ol.why .journal li{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.75rem;
+color:var(--muted);margin:.18rem 0}
+.conf-block{display:grid;gap:.3rem;margin:.35rem 0 .45rem;max-width:32rem}
+.confrow{display:grid;grid-template-columns:8rem 1fr 2.6rem;gap:.5rem;align-items:center}
+.conflabel{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.confbar{height:.55rem;background:rgba(127,127,127,.16);border-radius:999px;overflow:hidden}
+.confbar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.confbar i.high{background:var(--fp)}
+.confbar i.medium{background:var(--unknown)}
+.confbar i.low{background:var(--confirmed)}
+.confbar.model i{background:repeating-linear-gradient(90deg,var(--muted) 0 3px,transparent 3px 6px)}
+.confnum{font-variant-numeric:tabular-nums;font-size:.8rem;text-align:right}
+.confsaid{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+"""
+
+
+def _e(value: object) -> str:
+    return html.escape(str(value if value is not None else ""))
+
+
+_ROLE_ICON = {"source": "◉", "propagation": "→", "sanitizer": "🛡", "sink": "⌖"}
+_ROLE_RU = {"source": "источник", "propagation": "передача", "sanitizer": "очистка", "sink": "приёмник"}
+_VERDICT_RU = {"confirmed": "подтверждено", "unknown": "не решено", "false_positive": "ложное срабатывание"}
+_BAND_RU = {"high": "высокая", "medium": "средняя", "low": "низкая"}
+
+
+def _verdict_ru(value: str) -> str:
+    return _VERDICT_RU.get(value, value)
+
+
+def _dataflow_html(v) -> str:
+    if not v.dataflow:
+        return (
+            '<h4>Путь данных</h4><p class="note">Анализатор не сообщил пути данных, поэтому он не '
+            "восстанавливался: вердикт опирается только на код и описание.</p>"
+        )
+    rows = []
+    for step in v.dataflow:
+        cls = f"flow {step.role.value}" + ("" if step.grounded else " unverified")
+        taint, taint_label = ("tainted", "из ввода") if step.tainted else ("clean", "чистое")
+        badge = "" if step.grounded else '<span class="warn">не подтверждено</span>'
+        code = f"<pre>{_e(step.code)}</pre>" if step.code else ""
+        role = _ROLE_RU.get(step.role.value, step.role.value)
+        rows.append(
+            f'<li class="{cls}"><div class="flowhead">'
+            f'<span class="role">{_ROLE_ICON.get(step.role.value, "→")} {_e(role)}</span>'
+            f'<span class="taint {taint}">{taint_label}</span>'
+            f'<span class="loc">{_e(step.location or "")}</span>{badge}</div>'
+            f"{code}<p>{_e(step.explanation)}</p></li>"
+        )
+    return f'<h4>Путь данных — как значение доходит до места</h4><ol class="flowlist">{"".join(rows)}</ol>'
+
+
+_ANSWER = {
+    "confirmed": ("да", "yes"),
+    "unknown": ("не установлено", "maybe"),
+    "false_positive": ("нет", "no"),
+}
+
+
+_NO_FILE = {"", "<unknown>"}
+
+
+def _location(r: TriageRecord) -> str:
+    """What to print where a file path would go, when there is no file."""
+    if r.file_path and r.file_path not in _NO_FILE:
+        return r.file_path
+    if r.sca and r.sca.package:
+        version = f"@{r.sca.installed_version}" if r.sca.installed_version else ""
+        return f"{r.sca.package}{version}"
+    if r.kind == "dependency":
+        return "зависимость проекта"
+    return "файл не указан"
+
+
+def _where(r: TriageRecord) -> str:
+    """File, line and symbol — the three things a reviewer opens the editor with."""
+    parts: list[str] = []
+    if r.sca and r.sca.call_sites:
+        parts.extend(r.sca.call_sites[:3])
+    elif r.file_path and r.file_path not in _NO_FILE:
+        location = r.file_path
+        if r.start_line:
+            location = f"{location}:{r.start_line}"
+        parts.append(location)
+    symbol = (r.sca.symbol if r.sca and r.sca.symbol else None)
+    if not symbol and r.verdict.vulnerable_symbol:
+        symbol = r.verdict.vulnerable_symbol.name
+    if symbol:
+        parts.append(f"<code>{_e(symbol)}</code>")
+    return "<br>".join(_e(p) if not p.startswith("<code>") else p for p in parts) or "—"
+
+
+_ROUTES = {
+    "excluded": "вне платформы — факт среды, без поиска и CodeQL",
+    "callgraph": "граф вызовов",
+    "codeql": "CodeQL",
+    "psalm": "Psalm (типы и taint, PHP)",
+    "text": "поиск по тексту, без CodeQL",
+    "package": "факт импорта пакета",
+    "condition": "условие эксплуатации",
+    "unknown": "не определён",
+}
+
+
+def _trace(r: TriageRecord) -> str:
+    """What was followed, and which route the dependency chain took to get there."""
+    body = _trace_body(r)
+    route = r.sca.route if r.sca else ""
+    calls = r.sca.codeql_calls if r.sca else []
+    parts = []
+    if route:
+        parts.append(f"<em>маршрут: {_e(_ROUTES.get(route, route))}</em>")
+    evidence = r.sca.call_evidence if r.sca else ""
+    if evidence:
+        parts.append("<em>вызов: " + _e({
+            "import": "через имя, связанное с пакетом (импорт/require/use)",
+            "codeql": "CodeQL по API пакета", "psalm": "Psalm по типам",
+            "name": "только совпадение имени — не доказан",
+        }.get(evidence, evidence)) + "</em>")
+    if body != "—":
+        parts.append(body)
+    if calls:
+        parts.append("<small>" + "<br>".join(_e(call[:240]) for call in calls[:4]) + "</small>")
+    return "<br>".join(parts) or "—"
+
+
+def _trace_body(r: TriageRecord) -> str:
+    """What was actually followed, not what might exist."""
+    audit = r.sca.audit if r.sca else ""
+    if r.sca and r.sca.trace:
+        return f"{_e(audit)}<br>{_e(r.sca.trace)}" if audit else _e(r.sca.trace)
+    if audit:
+        return _e(audit)
+    steps = getattr(r.verdict, "dataflow", None) or []
+    if steps:
+        return "<br>".join(
+            _e(f"{s.location or 'место не указано'} — {_ROLE_RU.get(s.role.value, s.role.value)}")
+            for s in steps[:4])
+    if r.symbol_context:
+        return "<br>".join(_e(s) for s in r.symbol_context[:3])
+    return "—"
+
+
+def _external_cell(r: TriageRecord) -> str:
+    """What has to be checked outside the code, and by whom."""
+    if not r.sca:
+        return '<span class="ext">цепочка не запускалась</span>'
+    if r.sca.owner:
+        return (f'<span class="ext">инфраструктура</span><br>{_e(r.sca.external)}'
+                f'<br><em>владелец: {_e(r.sca.owner)}</em>')
+    if r.sca.external:
+        return f'<span class="ext">вне репозитория</span><br>{_e(r.sca.external)}'
+    return "—"
+
+
+_CONDITION_LABEL = {
+    "holds": ("условие выполнено", "holds"),
+    "absent": ("условия нет в коде", "absent"),
+    "external": ("решается вне репозитория", "outside"),
+    "infrastructure": ("чужая инфраструктура", "outside"),
+}
+
+
+def _flaw_text(sca, *, russian: bool) -> str:
+    """The advisory's description: retold in Russian, or quoted as published."""
+    if russian and sca.flaw_ru:
+        return sca.flaw_ru
+    return sca.flaw
+
+
+def _condition_cell(r: TriageRecord, *, russian: bool = False) -> str:
+    """What the advisory says this CVE is. Nothing about our code belongs here:
+    whether the condition holds in this repository is a verdict, and verdicts
+    live in their own column and in the finding's own block."""
+    sca = r.sca
+    if not sca:
+        return '<span class="cond outside">цепочка не запускалась</span>'
+
+    parts = []
+    flaw = _flaw_text(sca, russian=russian)
+    if flaw:
+        text = flaw if len(flaw) <= 260 else flaw[:260].rstrip() + "…"
+        parts.append(f'<span class="flaw">{_e(text)}</span>')
+    if sca.condition:
+        parts.append('<span class="cond-need">срабатывает, если: '
+                     f'{_e(sca.condition[:260])}</span>')
+
+    if not parts:
+        return '<span class="cond outside">описание advisory не получено</span>'
+    return "<br>".join(parts)
+
+
+def _flaw_step(sca, *, russian: bool) -> str:
+    """The block under the finding. The Russian report keeps the original too,
+    because a retelling is not the source and a reader may want to check it."""
+    body = f"<p>{_e(_flaw_text(sca, russian=russian))}</p>"
+    if russian and sca.flaw_ru and sca.flaw:
+        body += f'<p class="note">в оригинале: {_e(sca.flaw)}</p>'
+    if sca.what_changed:
+        body += f'<p class="note">исправление: {_e(sca.what_changed)}</p>'
+    return body
+
+
+_KINDS = (
+    ("dependency", "Зависимости (SCA)", "чужой код: уязвимость в пакете, вопрос — доходит ли до неё этот проект"),
+    ("weakness", "Свой код (SAST)", "код проекта: вопрос — является ли отмеченное место дефектом"),
+    ("misconfiguration", "Конфигурация", "образ и окружение: настройка, прочитанная сканером буквально"),
+    ("license", "Лицензии", "опасная лицензия пакета: не уязвимость, а юридический риск"),
+)
+
+
+_KIND_TAG = {
+    "dependency": ("SCA", "уязвимость в зависимости: доходит ли до неё этот проект"),
+    "weakness": ("SAST", "код проекта: является ли отмеченное место дефектом"),
+    "business_logic": ("БИЗНЕС-ЛОГИКА", "проверка объектного доступа, авторизации и криптографических алгоритмов"),
+    "misconfiguration": ("CONFIG", "конфигурация образа или окружения"),
+    "license": ("ЛИЦЕНЗИЯ", "опасная лицензия: не уязвимость, а юридический риск"),
+}
+
+
+def _kind_tag(r: TriageRecord) -> str:
+    kind = _kind_of(r)
+    label, _ = _KIND_TAG[kind]
+    return f'<span class="ktag k-{kind}">{label}</span>'
+
+
+def _kind_foot(r: TriageRecord) -> str:
+    kind = _kind_of(r)
+    label, meaning = _KIND_TAG[kind]
+    return f'<div class="kfoot k-{kind}">{label}<span>{_e(meaning)}</span></div>'
+
+
+def _kind_of(r: TriageRecord) -> str:
+    """Which half of the report a finding belongs to.
+
+    The two halves answer different questions — a dependency finding asks
+    whether this project reaches someone else's flaw, a code finding asks
+    whether the flagged line is a flaw at all — and reading them in one list
+    means re-deciding which question you are looking at on every row.
+    """
+    kind = (getattr(r, "kind", "") or "").strip()
+    if kind in ("dependency", "weakness", "business_logic", "misconfiguration", "license"):
+        return kind
+    return "dependency" if (r.sca and r.sca.package) else "weakness"
+
+
+_SEVERE = ("critical", "high")
+
+
+def _proven_reach(r: TriageRecord) -> bool:
+    """Did something beyond a name match show the flaw is reached?"""
+    sca = r.sca
+    if sca and (sca.trace or sca.route == "codeql" and sca.codeql_calls):
+        return True
+    return r.verdict.evidence_class.value == "EXPLOITABLE_DATAFLOW"
+
+
+def _priority(r: TriageRecord) -> tuple[int, str, list[str]]:
+    """Order of work, with the signals that set it.
+
+    Severity alone sorts an advisory, not a queue: a critical CVE in a package
+    nothing reaches waits behind a high one on a proven path.
+    """
+    answer = r.verdict.verdict.value
+    severity = (r.severity.value if r.severity else "unknown")
+    severe = severity in _SEVERE
+    signals = [f"серьёзность: {severity}"]
+
+    if answer == "false_positive" and r.verdict.requires_human_review:
+        signals.append("закрытие ожидает проверки человеком")
+        return (2, "P2", signals) if severe else (3, "P3", signals)
+
+    if r.sca is not None and r.sca.priority and answer == "false_positive":
+        signals.append(f"закрыто: {r.sca.policy or 'проверка'}; рекомендация по обновлению — {r.sca.priority}")
+        return 4, "P4", signals
+    if r.sca is not None and r.sca.priority and answer != "unknown":
+        rank = {"critical": 1, "high": 1, "medium": 2, "low": 3, "none": 4}.get(r.sca.priority, 3)
+        signals.append(f"приоритет по политике: {r.sca.priority} ({r.sca.policy or 'модель'})")
+        if r.sca.shipped:
+            signals.append(f"поставка: {r.sca.shipped}")
+        return rank, f"P{rank}", signals
+
+    if answer == "false_positive":
+        signals.append("закрыто проверкой")
+        return 4, "P4", signals
+
+    reached = _proven_reach(r)
+    signals.append("путь до уязвимости доказан анализатором" if reached
+                   else "доказанного пути до уязвимости нет")
+    transitive = bool(r.sca and r.sca.placement.startswith("транзитивная"))
+    if r.sca and r.sca.placement:
+        signals.append("транзитивная зависимость" if transitive else r.sca.placement[:60])
+    # Behind a login the attacker has to be a user first: one step down the queue, no lower
+    # than P3 — it is still a finding, only not the first one to fix.
+    behind_login = (r.exposure or "").startswith("authenticated:")
+    if behind_login:
+        signals.append("доступно только после входа: " + r.exposure.split(":", 1)[1].strip()[:140])
+
+    def ranked(rank: int) -> tuple[int, str, list[str]]:
+        rank = min(rank + 1, 3) if behind_login else rank
+        return rank, f"P{rank}", signals
+
+    if answer == "confirmed":
+        if severe and reached:
+            return ranked(1)
+        if severe or reached:
+            return ranked(2)
+        return ranked(3)
+
+    signals.append("вердикт не вынесен — нужен человек")
+    if severe and not transitive:
+        return ranked(2)
+    return ranked(3)
+
+
+def _priority_cell(r: TriageRecord) -> str:
+    rank, label, signals = _priority(r)
+    title = _e("; ".join(signals))
+    return f"<span class='prio p{rank}' title='{title}'>{label}</span>"
+
+
+def _finding_row(r: TriageRecord, *, russian: bool = False) -> str:
+    answer, css = _ANSWER.get(r.verdict.verdict.value, ("—", "maybe"))
+    if r.verdict.verdict is VerdictLabel.false_positive and r.verdict.requires_human_review:
+        answer, css = "FP · на проверке", "maybe"
+    if r.sca and r.sca.package:
+        what = f"<strong>{_e(r.sca.package)}</strong>"
+        if r.sca.installed_version:
+            what += f" {_e(r.sca.installed_version)}"
+        kind = _e(r.sca.placement or "зависимость")
+        shipped = {"runtime": "загружается приложением", "image_only": "в образе, не загружается",
+                   "build_only": "только сборка/тесты"}.get(r.sca.shipped, "")
+        where = {"browser": "браузер", "node": "Node", "both": "браузер и Node (SSR)",
+                 "server": "сервер"}.get(r.sca.runtime, "")
+        if shipped:
+            kind += f"<br>{_e(shipped)}" + (f" · {_e(where)}" if where and r.sca.shipped == "runtime" else "")
+    else:
+        what = f"<strong>{_e(r.cwe or r.rule_id or '—')}</strong>"
+        kind = _e(r.rule_id or "код проекта")
+        if r.kind == "business_logic":
+            category = {"CWE-639": "IDOR / BOLA", "CWE-862": "Авторизация",
+                        "CWE-863": "Авторизация", "CWE-328": "Хеширование",
+                        "CWE-916": "Хеширование паролей"}.get(r.cwe, r.cwe or "Проверка")
+            what = f"<strong>{_e(category)}</strong>"
+            if r.trace and r.trace[0].message:
+                kind = _e(r.trace[0].message)
+    note = _e(r.sca.outcome_note) if r.sca and r.sca.outcome_note else _e(r.verdict.reason)
+    return (
+        f"<tr class='{css}'>"
+        f"<td class='prio-cell'>{_priority_cell(r)}</td>"
+        f"<td>{_kind_tag(r)} {what}<br><span class='kind'>{kind}</span></td>"
+        f"<td class='answer {css}'>{answer}</td>"
+        f"<td>{_where(r)}</td>"
+        f"<td class='trace'>{_trace(r)}</td>"
+        f"<td class='ext-cell'>{_external_cell(r)}</td>"
+        f"<td class='why'>{note[:400]}</td>"
+        f"<td class='cond-cell'>{_condition_cell(r, russian=russian)}</td>"
+        f"</tr>"
+    )
+
+
+def _kind_counts(records) -> str:
+    tally = Counter(r.verdict.verdict for r in records)
+    pending = sum(1 for r in records if r.verdict.verdict is VerdictLabel.false_positive
+                  and r.verdict.requires_human_review)
+    return (f"<span class='tally yes'>{tally['confirmed']} подтверждено</span>"
+            f"<span class='tally maybe'>{tally['unknown']} не решено</span>"
+            f"<span class='tally no'>{tally['false_positive'] - pending} закрыто автоматически</span>"
+            f"<span class='tally maybe'>{pending} FP на проверке</span>"
+            f"<span class='tally total'>{len(records)} всего</span>")
+
+
+def _finding_table(records: list[TriageRecord], *, russian: bool) -> str:
+    cols = "".join(f'<col style="width:{width}%">' for _, width in _TABLE_COLUMNS)
+    heads = "".join(f"<th>{name}</th>" for name, _ in _TABLE_COLUMNS)
+    rows = "".join(_finding_row(r, russian=russian) for r in records)
+    return (f'<table class="findings"><colgroup>{cols}</colgroup><thead><tr>{heads}</tr></thead>'
+            f"<tbody>{rows}</tbody></table>")
+
+
+def _summary_table(run: TriageRun, *, russian: bool = False) -> str:
+    """One table per kind of finding, in the order a queue should be worked."""
+    ordered = sorted(run.in_scope, key=lambda r: (_priority(r)[0], r.file_path or ""))
+    blocks = []
+    for kind, heading, subtitle in _KINDS:
+        part = [r for r in ordered if _kind_of(r) == kind]
+        if not part:
+            continue
+        blocks.append(
+            f'<h2 id="table-{kind}">{heading}</h2>'
+            f'<p class="section-note">{subtitle}</p>'
+            f'<div class="tallies">{_kind_counts(part)}</div>'
+            + _finding_table(part, russian=russian)
+        )
+    return "".join(blocks)
+
+
+_DECIDED_BY = {
+    "llm": "модель",
+    "heuristics": "детерминированная проверка, без модели",
+    "post_validation": "пост-валидация",
+    "scope": "фильтр области",
+    "challenged": "второй проход",
+    "error": "ошибка",
+}
+
+_OUTCOMES = {
+    "actual": "вызов есть и до него доходит пользовательский ввод",
+    "not_reached": "граф вызовов до уязвимой функции не доходит",
+    "unused": "путь импорта не найден в дереве проекта",
+    "test_only_import": "пакет импортируется только тестами",
+    "not_shipped": "пакет нужен только для сборки и тестов",
+    "no_direct_call": "прямого вызова уязвимой функции нет",
+    "condition_absent": "условие эксплуатации не выполнено",
+    "wrong_receiver": "вызовы этого имени ведут в другой класс",
+    "not_applicable": "уязвимого пути нет в поставляемом пакете",
+    "present": "вызов есть, путь от ввода не доказан",
+    "call_unconfirmed": "вызов не подтверждён: совпало имя, объект не разрешён",
+    "mentioned": "имя только упоминается, вызова нет",
+    "only_in_tests": "вызовы есть только в тестовом коде",
+    "infrastructure": "решается на чужой инфраструктуре",
+    "undecided": "цепочка не определила",
+}
+
+
+def _confidence_html(v) -> str:
+    """Measured confidence beside the number the model gave itself, so the gap is visible."""
+    band = v.confidence_band or "—"
+    pct = max(0, min(100, round((v.confidence or 0) * 100)))
+    rows = [
+        '<div class="confrow"><span class="conflabel">по проверкам</span>'
+        f'<span class="confbar"><i class="{_e(band)}" style="width:{pct}%"></i></span>'
+        f'<span class="confnum">{v.confidence:.2f}</span></div>'
+    ]
+    said = v.self_reported_confidence
+    note = ""
+    if said is not None:
+        spct = max(0, min(100, round(said * 100)))
+        rows.append(
+            '<div class="confrow"><span class="conflabel">модель о себе</span>'
+            f'<span class="confbar model"><i style="width:{spct}%"></i></span>'
+            f'<span class="confnum">{said:.2f}</span></div>'
+        )
+        if abs(said - v.confidence) >= 0.05:
+            where = "выше" if said > v.confidence else "ниже"
+            note = (
+                f'<p class="note">Модель оценила себя на {abs(said - v.confidence):.2f} {where} '
+                "измеренного. Решает измеренное: оно считается из выживших цитат, подтверждения "
+                "вторым сканером и трассы резолвера.</p>"
+            )
+    rationale = f"<p>{_e(v.confidence_rationale)}</p>" if v.confidence_rationale else ""
+    return (
+        f"<h4>Уверенность: {_e(_BAND_RU.get(band, band))}</h4>"
+        f'<div class="conf-block">{"".join(rows)}</div>{note}{rationale}'
+    )
+
+
+def _why_html(r: TriageRecord, *, russian: bool = False) -> str:
+    """The trail that produced this verdict, in the order it actually happened."""
+    v = r.verdict
+    steps: list[str] = []
+
+    def step(title: str, body: str, kind: str = "") -> None:
+        steps.append(
+            f'<li class="step {kind}"><span class="steptitle">{_e(title)}</span>{body}</li>'
+        )
+
+    source = f"правило <code>{_e(r.rule_id or '—')}</code>"
+    if r.sca and r.sca.package:
+        source += f" · пакет <code>{_e(r.sca.package)}@{_e(r.sca.installed_version)}</code>"
+        if r.sca.placement:
+            source += f" · {_e(r.sca.placement)}"
+    step("Сканер сообщил", f"<p>{source}</p>")
+
+    if r.sca and (r.sca.flaw or r.sca.flaw_ru):
+        step("В чём уязвимость", _flaw_step(r.sca, russian=russian))
+
+    if r.reachability:
+        step("Граф вызовов", f"<p>{_e(r.reachability)}</p>")
+
+    sca = r.sca
+    if sca:
+        bits = []
+        if sca.route:
+            bits.append(f"маршрут: <b>{_e(_ROUTES.get(sca.route, sca.route))}</b>")
+        if sca.symbol:
+            bits.append(f"уязвимая функция: <code>{_e(sca.symbol)}</code>")
+        body = f"<p>{' · '.join(bits)}</p>" if bits else ""
+        if sca.outcome:
+            body += f"<p><b>{_e(_OUTCOMES.get(sca.outcome, sca.outcome))}</b></p>"
+        if sca.outcome_note:
+            body += f'<p class="note">{_e(sca.outcome_note)}</p>'
+        if sca.dependency_context:
+            step("Контекст Go SCA", f"<pre>{_e(sca.dependency_context)}</pre>", "audit")
+        if sca.call_sites:
+            sites = "".join(f"<li><code>{_e(s)}</code></li>" for s in sca.call_sites[:6])
+            body += f"<ul>{sites}</ul>"
+        if body:
+            step("Цепочка зависимости", body)
+        if sca.codeql_calls:
+            asked = "".join(f"<li>{_e(c)}</li>" for c in sca.codeql_calls)
+            step("Что спросили у анализатора", f'<ul class="journal">{asked}</ul>', "analyzer")
+        if sca.audit:
+            step("Проверка закрытия", f"<p>{_e(sca.audit)}</p>", "audit")
+        if sca.condition and sca.condition_state in ("holds", "absent"):
+            label = _CONDITION_LABEL.get(sca.condition_state, ("проверялось", ""))[0]
+            body = f"<p><b>{_e(label)}</b></p><p>{_e(sca.condition)}</p>"
+            if sca.condition_hits:
+                hits = "".join(f"<li><code>{_e(hit)}</code></li>" for hit in sca.condition_hits[:4])
+                body += f"<ul>{hits}</ul>"
+            step("Условие уязвимости", body, "audit")
+        if sca.external:
+            step("Решается вне репозитория", f"<p>{_e(sca.external)}</p>")
+        if sca.problems:
+            issues = "".join(f"<li>{_e(p)}</li>" for p in sca.problems[:5])
+            step("Что не удалось проверить", f"<ul>{issues}</ul>", "checks")
+
+    if v.reason:
+        by_model = r.decided_by in ("llm", "challenged") or bool(r.overrides)
+        step("Модель рассудила" if by_model else "Основание", f"<p>{_e(v.reason)}</p>")
+
+    if r.overrides:
+        original = _e(_verdict_ru(r.original_verdict.verdict.value)) if r.original_verdict else "—"
+        items = "".join(f"<li>{_e(o)}</li>" for o in r.overrides)
+        step(
+            "Пост-валидация вмешалась",
+            f'<p class="note">модель говорила: <b>{original}</b></p><ul>{items}</ul>',
+            "checks",
+        )
+
+    if r.challenge_note:
+        step("Второй проход возразил", f"<p>{_e(r.challenge_note)}</p>", "checks")
+
+    decided = _DECIDED_BY.get(r.decided_by, r.decided_by)
+    step(
+        "Итог",
+        f'<p><span class="badge {v.verdict.value}">{_verdict_ru(v.verdict.value)}</span>'
+        f" — решил: <b>{_e(decided)}</b>"
+        + (" · нужен человек" if v.requires_human_review else "")
+        + "</p>",
+        "final",
+    )
+
+    return f'<h4>Как получен вердикт</h4><ol class="why">{"".join(steps)}</ol>'
+
+
+def _record_html(r: TriageRecord, *, russian: bool = False) -> str:
+    v = r.verdict
+    sym = v.vulnerable_symbol
+    sym_summary = f'<span class="sym">{_e(sym.name)}</span>' if sym else ""
+    parts = [
+        (f'<details class="k-{_kind_of(r)}"><summary>'
+        f'<span class="badge {v.verdict.value}">{_verdict_ru(v.verdict.value)}</span>'
+        f'<span class="cwe">{_e(r.cwe or "—")}</span>'
+        f"{sym_summary}"
+        f'<span class="path" title="{_e(_location(r))}">{_e(_location(r))}</span>'
+        f'<span class="conf" title="{_e(v.confidence_rationale)}">'
+        f'{_e(_BAND_RU.get(v.confidence_band or "", "—"))} · {v.confidence:.2f}</span>'
+        + (
+            f'<span class="confsaid" title="уверенность, которую заявила сама модель">'
+            f"ЛЛМ {v.self_reported_confidence:.2f}</span>"
+            if v.self_reported_confidence is not None
+            else ""
+        )
+        + _kind_tag(r)
+        + '</summary><div class="body">'),
+        _why_html(r, russian=russian),
+    ]
+
+    brief = review.build(r)
+    if brief.actionable:
+        facts = "".join(f"<li>{_e(f)}</li>" for f in brief.established)
+        blocks = []
+        for q in brief.questions:
+            where = "".join(f"<li><code>{_e(w)}</code></li>" for w in q.look_at if w)
+            implies = ""
+            if q.if_yes or q.if_no:
+                implies = (
+                    f'<p class="implies"><strong>да →</strong> {_e(q.if_yes)}'
+                    f'<br><strong>нет →</strong> {_e(q.if_no)}</p>'
+                )
+            blocks.append(
+                f'<li><p class="q">{_e(q.text)}</p>'
+                + (f"<p class=\"note\">смотреть:</p><ul>{where}</ul>" if where else "")
+                + implies
+                + "</li>"
+            )
+        parts.append(
+            '<div class="brief"><h4>Что нужно от тебя</h4>'
+            + (f'<p class="note">Установлено автоматически:</p><ul>{facts}</ul>' if facts else "")
+            + f'<ol class="questions">{"".join(blocks)}</ol></div>'
+        )
+
+    if sym:
+        loc = f' <span class="loc">{_e(sym.location)}</span>' if sym.location else ""
+        heading = "В чём проблема" if v.verdict.value == "confirmed" else "На что указал сканер"
+        parts.append(
+            f"<h4>{heading}</h4>"
+            f'<p><code class="sym">{_e(sym.name)}</code> <span class="kind">{_e(sym.kind)}</span>{loc}<br>'
+            f"{_e(sym.why)}</p>"
+        )
+
+    parts.append(_dataflow_html(v))
+
+    parts.append(_confidence_html(v))
+    if v.verdict.value == "unknown" and v.blocking_question:
+        parts.append(
+            f'<h4>Что решило бы вопрос</h4><p class="blocking">{_e(v.blocking_question)}</p>'
+        )
+    if v.evidence:
+        quotes = "\n".join(_e(q) for q in v.evidence)
+        parts.append(f"<h4>Цитаты, сверенные со входными данными</h4><pre>{quotes}</pre>")
+    if v.missing_information:
+        items = "".join(f"<li>{_e(m)}</li>" for m in v.missing_information)
+        parts.append(f"<h4>Чего не хватило</h4><ul>{items}</ul>")
+    if r.error:
+        parts.append(f"<h4>Ошибка</h4><pre>{_e(r.error)}</pre>")
+
+    meta = [
+        f"класс доказательства: {_e(v.evidence_class.value)}",
+        f"решил: {_e(_DECIDED_BY.get(r.decided_by, r.decided_by))}",
+        f"нужен человек: {'да' if v.requires_human_review else 'нет'}",
+        f"провайдер: {_e(r.provider)}",
+        f"модель: {_e(r.model or '—')}",
+        f"промпт: {_e(r.prompt_id)} v{_e(r.prompt_version)}",
+    ]
+    if r.latency_ms:
+        meta.append(f"время модели: {r.latency_ms / 1000:.0f} с")
+    if r.token_budget:
+        budget = r.token_budget
+        meta.append(f"токены по находке: {_e(budget.get('charged'))} / {_e(budget.get('limit'))}")
+        if budget.get("estimated"):
+            meta.append(f"из них без статистики провайдера: {_e(budget['estimated'])}")
+        if budget.get("refused"):
+            meta.append("следующий запрос не поместился в лимит")
+    if r.cost_usd:
+        meta.append(f"стоимость: ${r.cost_usd:.5f}")
+    parts.append('<div class="meta">' + "".join(f"<span>{m}</span>" for m in meta) + "</div>")
+    parts.append(_kind_foot(r))
+    parts.append("</div></details>")
+    return "".join(parts)
+
+
+def _coverage_html(run: TriageRun) -> str:
+    """A banner above the numbers when a scanner did not run."""
+    cov = getattr(run, "coverage", None)
+    if cov is None:
+        return (
+            '<div class="cov unknown">Охват сканерами неизвестен — эти находки пришли не из '
+            "сканирования, за которое этот отчёт отвечает.</div>"
+        )
+    if getattr(cov, "complete", False):
+        return f'<div class="cov ok">Все сканеры отработали: {_e(", ".join(cov.ran))}.</div>'
+    gaps = "".join(f"<li>{_e(g)}</li>" for g in cov.gaps())
+    return (
+        '<div class="cov bad"><strong>Отчёт неполный.</strong>'
+        f"<ul>{gaps}</ul>"
+        "Ниже только то, что успело отработать. Малое число находок здесь не означает "
+        "чистый код.</div>"
+    )
+
+
+def _image_hygiene_html(run: TriageRun) -> str:
+    """Packages the running code never loads but the production image still carries.
+
+    Their advisories close as unreachable, which hides the fix that removes them all:
+    installing production dependencies only.
+    """
+    packages = sorted({
+        f"{r.sca.package} {r.sca.installed_version or ''}".strip()
+        for r in run.records
+        if r.sca and r.sca.package and r.sca.shipped == "image_only"})
+    if not packages:
+        return ""
+    items = "".join(f"<li>{_e(p)}</li>" for p in packages[:20])
+    if len(packages) > 20:
+        items += f"<li>… и ещё {len(packages) - 20}</li>"
+    return (
+        '<div class="cov warn"><strong>В рабочем образе лежат пакеты, которые приложение не '
+        f"загружает ({len(packages)}).</strong><ul>{items}</ul>"
+        "Их уязвимости закрыты как недостижимые, но код остаётся в образе и достаётся любому, "
+        "кто в него попадёт. Ставьте в образ только production-зависимости: "
+        "<code>composer install --no-dev</code>, <code>npm ci --omit=dev</code>.</div>"
+    )
+
+
+def _business_logic_html(run: TriageRun | None, warnings: Sequence[str], *,
+                         russian: bool, password_hashers: Sequence[dict]) -> str:
+    parts = ['<section id="business-logic"><h2>Бизнес-логика</h2>',
+             '<p class="section-note">Статическая проверка объектного доступа (IDOR), '
+             'авторизации и применения алгоритмов хеширования.</p>']
+    if warnings:
+        items = "".join(f"<li>{_e(warning)}</li>" for warning in warnings)
+        parts.append(f'<div class="cov warn"><strong>Ограничения проверки</strong><ul>{items}</ul></div>')
+    if password_hashers:
+        rows = []
+        for item in password_hashers:
+            location = f"{item['file_path']}:{item['line']}"
+            rows.append(f"<tr><td>{_e(item['environment'])}</td><td>{_e(item['user_class'])}</td>"
+                        f"<td>{_e(item['algorithm'])}</td><td>{_e(location)}</td></tr>")
+        parts.append("<h3>Настройки хеширования паролей Symfony</h3><table><thead><tr>"
+                     "<th>Окружение</th><th>Класс пользователя</th><th>Алгоритм в конфигурации</th>"
+                     "<th>Объявление</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
+    if run is None:
+        parts.append("<p>Проверка бизнес-логики не запускалась.</p>")
+    elif not run.records:
+        parts.append("<p>Кандидатов для статической проверки не обнаружено.</p>")
+    else:
+        skipped, checked = [], []
+        for record in run.records:
+            if record.decided_by in {"scope", "error"} or record.error:
+                skipped.append(record)
+            else:
+                checked.append(record)
+        checked.sort(key=lambda r: (_priority(r)[0], r.file_path, r.start_line or 0))
+        parts.append(f'<p>Кандидатов {len(run.records)} · разобрано моделью {run.triaged_count}'
+                     f' · без оценки {len(skipped)}</p>')
+        if skipped:
+            gaps = "".join(f"<li>{_e(_location(r))} · {_e(r.error or r.verdict.reason)}</li>" for r in skipped)
+            parts.append(f'<details><summary>Кандидаты без оценки</summary><ul>{gaps}</ul></details>')
+        if checked:
+            parts.append(f'<div class="tallies">{_kind_counts(checked)}</div>')
+            parts.append(_finding_table(checked, russian=russian))
+            parts.extend(_record_html(r, russian=russian) for r in checked)
+    return "".join(parts) + "</section>"
+
+
+def render(run: TriageRun, *, title: str = "SAST LLM Triage", russian: bool = False,
+           business_logic: TriageRun | None = None, business_warnings: Sequence[str] = (),
+           password_hashers: Sequence[dict] = ()) -> str:
+    counts = run.counts()
+    total = len(run.records)
+    overridden = sum(1 for r in run.records if r.overrides)
+    in_scope = run.in_scope
+    review = sum(r.verdict.requires_human_review for r in in_scope)
+    excluded = [r for r in run.records if r.decided_by == "scope"]
+    cards = [
+        ("Находок SAST/SCA", total, ""),
+        ("Разобрано моделью", run.triaged_count, ""),
+        ("Подтверждено", counts["confirmed"], "confirmed"),
+        ("Не решено", counts["unknown"], "unknown"),
+        ("Закрыто автоматически", run.auto_closed, "false_positive"),
+        ("Подходят для авторешения", run.auto_eligible, ""),
+        ("Без человека среди подходящих", f"{run.auto_decided_eligible}/{run.auto_eligible} ({run.auto_decision_pct:g}%)", ""),
+        ("FP на проверке", run.false_positive_pending_review, "unknown"),
+        ("На человека", review, ""),
+        ("Решено без человека", f"{100 * (len(in_scope) - review) / (len(in_scope) or 1):.0f}%", ""),
+        ("Шума убрано", f"{run.noise_reduction_pct:g}%", ""),
+    ]
+    if excluded:
+        cards.append(("Вне области", len(excluded), ""))
+    cards_html = "".join(
+        f'<div class="card"><div class="n {cls}">{_e(n)}</div><div class="l">{_e(label)}</div></div>'
+        for label, n, cls in cards
+    )
+
+    by_cwe: dict[str, dict[str, int]] = {}
+    for r in in_scope:
+        b = by_cwe.setdefault(r.cwe or "без CWE", {"confirmed": 0, "unknown": 0, "false_positive": 0})
+        b[r.verdict.verdict.value] += 1
+    rows = "".join(
+        f"<tr><td>{_e(cwe)}</td><td>{b['confirmed']}</td><td>{b['unknown']}</td>"
+        f"<td>{b['false_positive']}</td><td>{sum(b.values())}</td></tr>"
+        for cwe, b in sorted(by_cwe.items(), key=lambda kv: -sum(kv[1].values()))
+    )
+
+    ordered = sorted(in_scope, key=lambda r: (_ORDER[r.verdict.verdict], -r.verdict.confidence))
+    parts = []
+    for kind, heading, _subtitle in _KINDS:
+        section = [r for r in ordered if _kind_of(r) == kind]
+        if not section:
+            continue
+        parts.append(f'<h2 id="cards-{kind}">{heading} — подробно</h2>')
+        parts.extend(_record_html(r, russian=russian) for r in section)
+    findings_html = "".join(parts)
+    if excluded:
+        items = "".join(f"<li>{_e(_location(r))} · {_e(r.verdict.reason)}</li>" for r in excluded)
+        findings_html += f"<details><summary>Вне области проверки ({len(excluded)})</summary><ul>{items}</ul></details>"
+
+    coverage_html = _coverage_html(run)
+    generated = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    cost = f" · стоимость <strong>${run.total_cost_usd:.4f}</strong>" if run.total_cost_usd else ""
+    return f"""<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_e(title)}</title><style>{_THEME_CSS}{_CSS}{_COV_CSS}{_TABLE_CSS}</style>
+<script>{_THEME_JS}</script></head>
+<body><main>
+<div class="top"><h1>{_e(title)}</h1>{_THEME_SWITCH}</div>
+<p class="sub">{generated} · провайдер <strong>{_e(run.provider)}</strong> ·
+модель <strong>{_e(run.model)}</strong> · промпты <strong>{_e(run.prompt_pack)}</strong> ·
+вердиктов, исправленных пост-валидацией: <strong>{overridden}</strong>{cost}</p>
+{coverage_html}
+{_image_hygiene_html(run)}
+<div class="cards">{cards_html}</div>
+{upgrades_mod.render_html(upgrades_mod.plan(run.records))}
+<h2>По CWE</h2>
+<table><thead><tr><th>CWE</th><th>Подтверждено</th><th>Не решено</th><th>Вердикт FP</th><th>Всего</th></tr></thead>
+<tbody>{rows}</tbody></table>
+{_summary_table(run, russian=russian)}
+{_business_logic_html(business_logic, business_warnings, russian=russian, password_hashers=password_hashers)}
+{findings_html}
+</main></body></html>"""
+
+
+def write(run: TriageRun, path: Path, *, title: str = "SAST LLM Triage",
+          russian: bool = False, business_logic: TriageRun | None = None,
+          business_warnings: Sequence[str] = (), password_hashers: Sequence[dict] = ()) -> Path:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render(run, title=title, russian=russian, business_logic=business_logic,
+                           business_warnings=business_warnings, password_hashers=password_hashers), encoding="utf-8")
+    return path

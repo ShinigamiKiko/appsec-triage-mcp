@@ -1,0 +1,10 @@
+{
+  "default": {
+    "host": "192.0.2.10",
+    "user": "appsec",
+    "directory": "/srv/appsec/reports",
+    "port": 22,
+    "identity_file": "/run/appsec-mcp/id_ed25519",
+    "known_hosts_file": "/run/appsec-mcp/known_hosts"
+  }
+}

@@ -1,0 +1,15 @@
+# The build needs only package source, metadata and license.
+**
+!Dockerfile
+!pyproject.toml
+!README.md
+!LICENSE
+!src/
+!src/**
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

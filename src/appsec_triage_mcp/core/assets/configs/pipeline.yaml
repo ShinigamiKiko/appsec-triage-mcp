@@ -1,0 +1,66 @@
+deployment_config: deployment.yaml
+prompt_pack: default
+max_workers: 10
+fail_fast: false
+
+code_context_lines: 6
+max_code_chars: 4000
+max_trace_steps: 12
+max_evidence_chars: 32000
+context_retrieval_rounds: 1
+code_walk_first: true
+max_tool_calls: 20
+# Per-finding ceiling for all model calls, tool turns, retries and validation.
+# A job may override this explicitly, but the default must remain bounded.
+finding_token_limit: 1000000
+build_untrusted_input: true
+parallel_llm: 1
+slow_finding_seconds: 900
+resolve_vulnerable_symbols: true
+
+# Business-logic checks run in a separate block.  Keep them out of ordinary
+# SAST triage unless the caller explicitly requests the legacy audit flag.
+idor_audit: false
+business_logic_audit: false
+business_logic_max_endpoints: 200
+business_logic_max_hashes: 200
+manual_review_cwes: [CWE-639, CWE-89, CWE-79, CWE-918, CWE-94, CWE-95, CWE-98, CWE-502, CWE-77, CWE-78, CWE-88]
+
+verification:
+  enabled: true
+  mode: authoritative
+  challenge_verdicts: [confirmed]
+  challenge_on_override: false
+  challenge_cwes: []
+  challenge_closures_above_consequence: 26
+  challenge_kinds: [weakness, dependency, misconfiguration, business_logic]
+  downgrade_confirmed: true
+
+queue:
+  enabled: true
+  review_budget_pct: 100
+  cluster: true
+  min_score: 0
+
+scope:
+  enabled: true
+  exclude_rules: []
+  exclude_paths: []
+  only_cwes: []
+  min_severity: null
+  only_ecosystems: []
+
+heuristics:
+  enabled: true
+  autoclose_on_hard_fp: false
+  min_secret_entropy: 3.5
+  min_secret_length: 16
+  noisy_path_patterns: []
+  placeholder_markers: []
+
+post_validation:
+  enabled: true
+  require_evidence_quotes: true
+  quote_match_threshold: 1.0
+  escalate_severities: [critical, high]
+  closure_requires_named_defence_above: 26

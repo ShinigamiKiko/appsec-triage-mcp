@@ -1,0 +1,22 @@
+mode: native
+binary:
+  - codeql
+  - /opt/codeql/codeql
+  - ~/tools/codeql/codeql
+image: null
+rules: []
+language: null
+timeout_s: 3600
+docker_network: false
+
+suites:
+  go:
+    - codeql/go-queries:codeql-suites/go-security-extended.qls
+    - trailofbits/go-queries:codeql-suites/tob-go-security.qls
+    - trailofbits/go-queries:codeql-suites/tob-go-crypto.qls
+  javascript:
+    - codeql/javascript-queries:codeql-suites/javascript-security-extended.qls
+    - githubsecuritylab/codeql-javascript-queries:suites/javascript.qls
+model_packs:
+  go:
+    - githubsecuritylab/codeql-go-extensions

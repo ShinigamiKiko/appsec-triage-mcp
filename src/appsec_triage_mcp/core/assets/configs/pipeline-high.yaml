@@ -1,0 +1,6 @@
+extends: pipeline.yaml
+
+# Intentionally narrower security coverage. The quality gate still rejects tool
+# failures; below-floor findings are recorded as explicit scope exclusions.
+scope:
+  min_severity: high

@@ -1,0 +1,29 @@
+# One OpenAI-compatible Chat Completions endpoint. Select the model for this job
+# through the environment; no vendor-specific behavior is implied.
+model: ${LLM_MODEL}
+base_url: ${LLM_BASE_URL}
+api_key: ${LLM_API_KEY:-}
+
+# Prompts leave the perimeter unless this is explicitly changed for a trusted
+# local endpoint. Hosted runs always redact secrets before sending evidence.
+external: true
+
+temperature: 0.0
+max_tokens: 32768
+output_token_field: max_tokens
+json_mode: json_object
+
+timeout_s: 600
+connect_timeout_s: 10
+max_retries: 3
+backoff_base_s: 1.0
+backoff_max_s: 30.0
+concurrency: 10
+
+# No hard spending ceiling: an exhausted budget must never decide security
+# coverage. Set a value only when the operator also monitors incomplete runs.
+budget_usd: null
+pricing: {}
+
+# Provider-specific options, for example reasoning_effort or seed, belong here.
+options: {}

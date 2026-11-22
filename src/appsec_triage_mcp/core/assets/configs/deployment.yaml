@@ -1,0 +1,199 @@
+enabled: true
+
+description: >-
+  Приложение работает в Kubernetes. Внешний трафик приходит только через
+  ingress-контроллер, TLS терминируется на нём. Между сервисами — internal
+  cluster network.
+
+facts:
+  tls_terminated_at_ingress: true
+  backend_connection_plaintext: true
+  internet_exposure_via_ingress_only: true
+  inbound_http_rate_limiting_by_platform: true
+  repository_compose_is_local: true
+  repository_nginx_is_local: true
+  liveness_probes_by_platform: true
+  run_as_non_root_by_platform: false
+  secrets_injected_at_deploy: false
+  no_ssh_in_workloads: true
+  no_ldap_in_workloads: true
+  host_platform_owned: true
+  no_gui_or_hardware_in_workloads: true
+  # Все рабочие нагрузки — Linux-контейнеры; Windows, macOS и BSD не запускаются.
+  linux_workloads_only: true
+  # Composer, npm/yarn/pnpm, pip и Go toolchain запускаются только при сборке образа,
+  # на манифестах и lock-файлах самого репозитория; сервис их в работе не вызывает.
+  package_managers_build_time_only: true
+  # Laravel и React — не факты платформы: на одном фреймворке написан один сервис, на
+  # другом — другой. Они решаются по манифестам сканируемого репозитория (`present_if:`
+  # у компонента ниже): нет в нём Laravel — его CVE закрываются, есть — разбираются.
+runtime_platform:
+  os: linux
+
+# register_argc_argv в php.ini PHP-FPM базовых образов. С On строка запроса веб-запроса
+# попадает в $_SERVER['argv'] и через --env меняет APP_ENV (symfony/runtime GHSA-fqc7,
+# laravel/framework GHSA-gv7v). Агент берёт базовый образ последней стадии продового
+# Dockerfile; если Dockerfile сам меняет register_argc_argv или копирует php.ini с ним —
+# решает это, а не список. Образа нет в списке — CVE уходит человеку, как раньше.
+#
+# Значение — только проверенное, не по умолчанию: в официальных образах php:*-fpm
+# php.ini нет вовсе, и тогда register_argc_argv = On (так задано в самом PHP).
+# Проверка (CLI всегда On — смотреть нужно конфиг FPM):
+#   docker run --rm --entrypoint sh <образ> -c 'grep -H "^register_argc_argv" /etc/php/*/fpm/php.ini /usr/local/etc/php/php.ini 2>/dev/null; ls /usr/local/etc/php 2>/dev/null'
+# Базовые образы в проектах из Downloads/Rabota (на 2026-10-24):
+#   harbor.rabota.space/sre/iac/docker-images/php-fpm/ubuntu-refactor/
+#   harbor.rabota.space/sre/iac/docker-images/php-fpm/ubuntu/
+#   harbor.rabota.space/sbs/iac/docker-images/php-fpm:8.0.10
+#   harbor.rabota.space/sberwork/iac/service-images/php/7-4
+#   harbor.rabota.space/sberwork/iac/service-images/symfony/7-4-8
+php_ini_by_image: []
+#  - image: harbor.rabota.space/sre/iac/docker-images/php-fpm/ubuntu/
+#    register_argc_argv: "Off"
+#    checked: "/etc/php/8.1/fpm/php.ini, 2026-10-24, <кто>"
+
+out_of_scope_components:
+  - id: ssh
+    requires: no_ssh_in_workloads
+    describe: >-
+      Any use of SSH by the service itself, on either side: accepting SSH
+      connections (sshd, golang.org/x/crypto/ssh NewServerConn or ServerConfig
+      callbacks, an ssh2 Server, a paramiko ServerInterface), connecting out over
+      SSH or SFTP (ssh.Dial, NewClientConn, an ssh2 Client, paramiko SSHClient),
+      SSH agents as client or server, and SSH key, certificate and known_hosts
+      handling. A flaw on the server side and a flaw on the client side both count.
+    keywords: [ssh, sshd, sftp]
+    markers: ["golang.org/x/crypto/ssh", "NewServerConn", "ssh2", "paramiko", "openssh", "sshd", "containerPort: 22"]
+    why: "SSH в подах Kubernetes не используется ни сервером, ни клиентом — антипаттерн, доступ к контейнеру только через kubectl exec"
+  - id: host_platform
+    requires: host_platform_owned
+    owner: platform-security
+    describe: >-
+      Host and node components: the running Linux kernel and its modules, eBPF,
+      device drivers, firmware, BIOS/UEFI, bootloaders, hypervisors, VM/container
+      escape, systemd/udev, cgroups/namespaces as kernel features, and the
+      container runtime (runc, containerd, kubelet). These are attached to the
+      machine or node, not to the application pod. A kernel flaw reported on an
+      image package that only ships kernel headers or tools (linux-libc-dev,
+      linux-headers-*, linux-kbuild) still belongs here: the pod runs the node's
+      kernel, not a kernel from the image.
+      NOT covered — these run inside the application and are `none`: a language's
+      system-call wrappers compiled into the binary (the Go `syscall` package,
+      golang.org/x/sys, Node's `process`/`os`, Python's `os`), libc (glibc, musl),
+      language runtimes, and libraries that merely carry the word "kernel" in their
+      name (semantic-kernel, Jupyter or IPython kernels). An advisory that only
+      lists the kernel among the effects of a flaw elsewhere (an OOM kill) is `none`.
+    keywords: [kernel, eBPF, firmware, BIOS, UEFI, bootloader, hypervisor, "VM escape", "container escape", systemd, udev, cgroup, runc, containerd, kubelet, etcd, linux-libc-dev]
+    markers: ["/proc/", "/sys/", "CAP_SYS_ADMIN", "privileged: true", "hostPID: true", "hostNetwork: true"]
+    why: "уязвимость относится к машине, node или container runtime; это зона platform-security, а не приложения в pod"
+  - id: ldap
+    requires: no_ldap_in_workloads
+    describe: >-
+      Any use of LDAP by the service itself, on either side: binding to or
+      searching a directory, building LDAP filters or DNs, serving LDAP, and the
+      LDAP client libraries (php-ldap, symfony/ldap, go-ldap, ldapjs, ldap3,
+      python-ldap, javax.naming.ldap). NOT covered — `none`: a flaw where LDAP is
+      only the attacker's delivery channel for something else the service does
+      (a JNDI lookup as in Log4Shell, an SSRF that can reach an LDAP URL), and
+      ASN.1/BER parsers shared with X.509 and other formats.
+    keywords: [LDAP, LDAPS]
+    markers: ["ldap_connect", "ldap_bind", "Symfony\\Component\\Ldap", "go-ldap/ldap", "ldapjs", "import ldap3", "import ldap", "javax.naming.ldap"]
+    why: "LDAP в сервисах не используется ни как клиент, ни как сервер"
+  - id: inbound_tls
+    requires: tls_terminated_at_ingress
+    # Свой TLS-listener в коде или re-encrypt на ingress значит, что сервис всё же
+    # принимает TLS: тогда CVE разбирается как обычно, а не закрывается.
+    markers_reopen: true
+    describe: >-
+      The service accepting TLS connections itself: TLS server handshake
+      processing, server-side session resumption and tickets, server certificate
+      selection (SNI callbacks), and a server verifying client certificates.
+      Server side only. NOT covered — `none`: TLS clients (outbound HTTPS,
+      database, cache or queue connections over TLS), X.509 and certificate
+      parsing that clients also run, general cryptographic primitives, and flaws
+      of HTTP/2 or any other protocol that also occur without TLS.
+    keywords: [TLS, SSL, handshake, "server certificate", "client certificate", SNI, "session ticket", "session resumption", ALPN]
+    markers: ["ListenAndServeTLS", "ServeTLS(", "tls.Listen(", "tls.NewListener(", "https.createServer", "tls.createServer", "http2.createSecureServer", "server_side=True", "backend-protocol: \"HTTPS\"", "backend-protocol: HTTPS", "backend-protocol: \"GRPCS\""]
+    why: "входящий TLS терминируется на ingress-контроллере; сервис получает plaintext"
+  - id: non_linux_os
+    requires: linux_workloads_only
+    markers_reopen: true
+    describe: >-
+      Flaws that exist only when the code runs on an operating system other than
+      Linux: Windows (drive letters, backslashes, UNC paths, reserved names such
+      as NUL or CON, CreateProcess and .bat/.cmd argument quoting, the registry,
+      DLL search order), macOS/darwin, FreeBSD, OpenBSD, NetBSD, DragonFly,
+      Solaris/illumos, AIX, Plan 9, and wasm/js targets. Covered only when the
+      advisory, or every platform line, limits the flaw to those systems. A flaw
+      that also occurs on Linux, or a platform line saying `any GOOS`, is `none`.
+    keywords: [Windows, macOS, darwin, FreeBSD, OpenBSD, NetBSD, DragonFly, Solaris, illumos, AIX, plan9, wasm, ".bat", ".cmd"]
+    markers: ["GOOS=windows", "GOOS=darwin", "mcr.microsoft.com/windows", "servercore", "nanoserver", "runs-on: windows", "kubernetes.io/os: windows"]
+    why: "все рабочие нагрузки — Linux-контейнеры; уязвимость только для другой ОС к ним не относится"
+  - id: build_tooling
+    requires: package_managers_build_time_only
+    owner: ci-build
+    markers_reopen: true
+    describe: >-
+      Package managers and toolchains run only while the image is built, on the
+      repository's own manifests and lock files: Composer (composer/composer
+      itself), the npm, yarn and pnpm command-line tools, pip, pipenv, poetry,
+      Maven, Gradle, and the Go command and toolchain (cmd/go, cmd/cgo, go get,
+      go mod download, toolchain switching). Covered: flaws exploited by running
+      such a tool on an attacker-controlled project, repository, package, branch
+      name or VCS server. NOT covered — `none`: libraries the application loads
+      at runtime, even ones published by the same project (composer/semver,
+      composer/ca-bundle, the generated autoloader under vendor/composer, npm
+      packages the application requires such as semver or tar), Go
+      standard-library packages compiled into the binary (net/http, crypto/*,
+      archive/*), and any tool the service itself starts while running.
+    keywords: ["composer/composer", Composer, "npm CLI", "npm cli", yarn, pnpm, pip, pipenv, poetry, "cmd/go", "cmd/cgo", "go command", "go get", toolchain, Gradle, Maven]
+    markers: ["exec.Command(\"go\"", "Process(['composer'", "Process([\"composer\"", "shell_exec('composer", "exec('composer", "spawn('npm'", "execSync('npm", "subprocess.run([\"pip\""]
+    why: "менеджеры пакетов и toolchain запускаются только на сборке, на lock-файлах самого репозитория"
+  - id: laravel
+    # Вне области только там, где ни composer.json, ни composer.lock (в корне и до двух
+    # уровней вглубь, без vendor/) не называют Laravel, Lumen или пакет illuminate/*:
+    # Illuminate, поставленный отдельно (Eloquent в Symfony-проекте), тоже считается.
+    present_if:
+      files: [composer.json, composer.lock]
+      contains: ['"laravel/framework"', '"laravel/lumen-framework"', '"illuminate/']
+    describe: >-
+      The Laravel framework and its Illuminate components: Laravel routing,
+      Eloquent, Blade templates, the artisan console, the service container,
+      queues and Horizon. Counts only when Laravel's own framework code is the
+      sole path to the flaw. A flaw in a general-purpose library that merely
+      mentions Laravel as one way to reach it does NOT count — that is a
+      precondition to check, not a framework this platform does not run.
+    keywords: [laravel, illuminate, blade, eloquent, artisan, horizon]
+    markers: ["laravel/framework", "Illuminate\\", "laravel/", "artisan", "config/app.php", "Blade::"]
+    why: "сервис написан не на Laravel; уязвимость только во фреймворке Laravel к нему не относится"
+  - id: react
+    # Только прямые зависимости: React, пришедший транзитивно, сервис не рендерит.
+    present_if:
+      files: [package.json]
+      contains: ['"react"', '"react-dom"', '"preact"', '"next"']
+    describe: >-
+      The React UI library and its immediate ecosystem: React DOM, React Native,
+      the JSX runtime, React server components. Counts only when React's own
+      rendering is the sole path to the flaw. A flaw in a general-purpose
+      JavaScript library that happens to be popular with React does NOT count.
+    keywords: [react, "react-dom", "react-native", jsx, preact]
+    markers: ["\"react\":", "from 'react'", "from \"react\"", "react-dom", "ReactDOM", ".jsx", ".tsx"]
+    why: "сервис не рендерит React; уязвимость только в React к нему не относится"
+  - id: gui_or_hardware
+    requires: no_gui_or_hardware_in_workloads
+    owner: platform-security
+    describe: >-
+      Desktop GUI and physical peripherals such as X11/Wayland, GTK/Qt,
+      clipboard, printers, cameras, microphones, audio, and touchscreen are not
+      present in the workload.
+    keywords: [GUI, "graphical user interface", X11, Wayland, GTK, Qt, printer, CUPS, webcam, camera, microphone, audio, touchscreen]
+    markers: [DISPLAY, WAYLAND_DISPLAY, /dev/video, /dev/snd, /dev/dri]
+    why: "в pod нет desktop GUI и физических устройств; это не runtime приложения"
+
+platform_handles:
+  - rule: js/missing-rate-limiting
+    requires: inbound_http_rate_limiting_by_platform
+    sast: true
+    why: "ограничение частоты входящих HTTP-запросов на внешнем контуре задаёт инфраструктурная команда"
+  - rule: "DS-0026"
+    requires: liveness_probes_by_platform
+    why: "живость контейнера проверяет kubelet через livenessProbe, HEALTHCHECK в образе не используется"

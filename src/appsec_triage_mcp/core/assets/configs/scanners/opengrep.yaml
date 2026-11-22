@@ -1,0 +1,18 @@
+# Opengrep — базовый сканер для любого проекта. Composer дополнительно требует
+# Psalm; остальные поддерживаемые экосистемы — CodeQL (см. scanners/selection.py).
+# Находки Opengrep внутри production-области подтверждает модель.
+#
+# Пакеты security-audit и owasp-top-ten, плюс 24 PHP-правила из pinned
+# opengrep/opengrep-rules, лежат в репозитории и работают без сети.
+# local_rules_dir разрешается относительно configs/, поэтому запуск не зависит от cwd.
+mode: native
+binary:
+  - opengrep
+  - /usr/local/bin/opengrep
+local_rules_dir: opengrep-rules
+rules:
+  - security-audit.yaml
+  - owasp-top-ten.yaml
+  - php        # Symfony, Laravel, Doctrine и PHP-правила, которых нет в пакетах
+per_file_timeout_s: 30        # секунд на правило в одном файле
+timeout_s: 900

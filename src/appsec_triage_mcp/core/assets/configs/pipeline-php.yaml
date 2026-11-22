@@ -1,0 +1,4 @@
+extends: pipeline.yaml
+
+scope:
+  only_ecosystems: [composer]

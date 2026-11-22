@@ -1,0 +1,12 @@
+mode: native
+binary:
+  - /opt/composer/vendor/bin/psalm.phar
+  - /usr/local/bin/psalm
+  - psalm
+  - /opt/composer/vendor/bin/psalm
+  - ~/.config/composer/vendor/bin/psalm
+image: null
+language: php
+run_in_target: true
+timeout_s: 1800
+docker_network: false

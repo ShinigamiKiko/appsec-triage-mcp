@@ -1,0 +1,12 @@
+name: appsec-triage
+title: AppSec Triage Tools
+type: server
+image: appsec-triage-mcp:local
+description: Clone up to three Git projects, scan, return HTML, clean up sources and deliver results.
+longLived: true
+env:
+  - name: APPSEC_MCP_SCP_TARGETS_FILE
+    value: /run/appsec-mcp/scp-targets.json
+volumes:
+  - "appsec-mcp-results:/out"
+# scripts/setup-docker-mcp.ps1 generates a local entry with delivery configuration mounts.

@@ -1,0 +1,1125 @@
+{
+  "origin": "AppSec-Triage-agent local snapshot",
+  "files": [
+    {
+      "source": "appsec_triage/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/business_logic.py",
+      "bundled": "src/appsec_triage_mcp/core/business_logic.py",
+      "source_sha256": "462f7a3ac95a6a205dc4940da7be8afd0b8003b3fb96150f7eb38d68c2f64a83"
+    },
+    {
+      "source": "appsec_triage/calibration.py",
+      "bundled": "src/appsec_triage_mcp/core/calibration.py",
+      "source_sha256": "09bfdb40499eaabddc2319353e3992ae6a297e144d811144126120a0e8256035"
+    },
+    {
+      "source": "appsec_triage/cli/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/__init__.py",
+      "source_sha256": "9e7b45b687b328b45b287af22c3d9761df69edc7fcb12a16a4ab2ff7ed6ba6a9"
+    },
+    {
+      "source": "appsec_triage/cli/__main__.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/__main__.py",
+      "source_sha256": "c9a3a32a02e6012f1fd134e66fbf92375b3d4f7376c0a3dd671117b5444423c7"
+    },
+    {
+      "source": "appsec_triage/cli/commands/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/commands/__init__.py",
+      "source_sha256": "19876836ff34292da9edb09386ea116e188b988656e9d74fa8f105131e7aee74"
+    },
+    {
+      "source": "appsec_triage/cli/commands/bench.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/commands/bench.py",
+      "source_sha256": "85795c4c75b1ae1ae7fdcbb8c492e6b71e3377025dcd8b850ef3b5cec8e9472f"
+    },
+    {
+      "source": "appsec_triage/cli/commands/misc.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/commands/misc.py",
+      "source_sha256": "e064a4a1a8a13704d7a6f17abf892ef23085e2d4370caf89abdd0dfeb53a55a0"
+    },
+    {
+      "source": "appsec_triage/cli/commands/reports.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/commands/reports.py",
+      "source_sha256": "fb6ceab81f82c5cdbe0195e409312ca45f2132efa2e673240e7a20bed6ca588b"
+    },
+    {
+      "source": "appsec_triage/cli/commands/scan.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/commands/scan.py",
+      "source_sha256": "c3fe13342a96fc226a182616c61641078d096eb366d14eb167c588d93458ebd0"
+    },
+    {
+      "source": "appsec_triage/cli/commands/triage.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/commands/triage.py",
+      "source_sha256": "826b04cbcfd618dca5e0aa6533c85e2b4b2f6ce5e7b833f082790708cbb80826"
+    },
+    {
+      "source": "appsec_triage/cli/common.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/common.py",
+      "source_sha256": "c2be3560325727686e2275549cde03dd72a368a2b016ac69ff7e98589b945190"
+    },
+    {
+      "source": "appsec_triage/cli/parser.py",
+      "bundled": "src/appsec_triage_mcp/core/cli/parser.py",
+      "source_sha256": "78f41062559c23ed703a368b453b624cebc0d7dd22ecbbf4f00e108d0a7d1df9"
+    },
+    {
+      "source": "appsec_triage/codewalk.py",
+      "bundled": "src/appsec_triage_mcp/core/codewalk.py",
+      "source_sha256": "0cea258aaf772ab73816dff7b50d2f2e4647c884feef820ebf34715b7878afe9"
+    },
+    {
+      "source": "appsec_triage/config.py",
+      "bundled": "src/appsec_triage_mcp/core/config.py",
+      "source_sha256": "70b3c85a77d3105f37c6a05b1fc99047c673b686fba8344a014b675d5be39956"
+    },
+    {
+      "source": "appsec_triage/consequence.py",
+      "bundled": "src/appsec_triage_mcp/core/consequence.py",
+      "source_sha256": "448c3c12db8fb39a8d5f5f04aa3a66b5961b9fd6cd2e9d8d38dc97e950a6275a"
+    },
+    {
+      "source": "appsec_triage/context/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/context/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/context/authmap.py",
+      "bundled": "src/appsec_triage_mcp/core/context/authmap.py",
+      "source_sha256": "5e132bd8ad25600e692dc6ed36d9258554ff556f82246fa90ac42fcf47fc7f4a"
+    },
+    {
+      "source": "appsec_triage/context/builder.py",
+      "bundled": "src/appsec_triage_mcp/core/context/builder.py",
+      "source_sha256": "c23dd25b3c283bd0a8adb044f1de250c037327fa088b890c1cceb6c2d306da5b"
+    },
+    {
+      "source": "appsec_triage/context/deps.py",
+      "bundled": "src/appsec_triage_mcp/core/context/deps.py",
+      "source_sha256": "73340f7a7e7871a24f875f008b17394003a49d92ef98dca213a8afe1c2f6145e"
+    },
+    {
+      "source": "appsec_triage/context/detection.py",
+      "bundled": "src/appsec_triage_mcp/core/context/detection.py",
+      "source_sha256": "9c46a6d28797d9aa55762e2339acffab9172f27971cdddb3650da3fab14326fe"
+    },
+    {
+      "source": "appsec_triage/context/evidence.py",
+      "bundled": "src/appsec_triage_mcp/core/context/evidence.py",
+      "source_sha256": "e864a85720f576fbf66e6f252809a113ff5d0acad6d640bd3406e692ec0fb316"
+    },
+    {
+      "source": "appsec_triage/context/exposure.py",
+      "bundled": "src/appsec_triage_mcp/core/context/exposure.py",
+      "source_sha256": "4b2f986470de5df081fd94ae5a9b5305fa6b0cb30c99a3b599f5b996acbb0180"
+    },
+    {
+      "source": "appsec_triage/context/framework.py",
+      "bundled": "src/appsec_triage_mcp/core/context/framework.py",
+      "source_sha256": "39cb8e03aded3ca0832790eda535a2a6d1875c7d016a024787762686728a36f2"
+    },
+    {
+      "source": "appsec_triage/context/heuristics.py",
+      "bundled": "src/appsec_triage_mcp/core/context/heuristics.py",
+      "source_sha256": "63e417b92d689db873f3ea3662a9ede63e2484c5150fca4c66fffe9a34fb7e33"
+    },
+    {
+      "source": "appsec_triage/context/project_map.py",
+      "bundled": "src/appsec_triage_mcp/core/context/project_map.py",
+      "source_sha256": "3b38feb8ab2628082ae18093210517ca9daf5685b7b38c6774a6938b7a84bd0a"
+    },
+    {
+      "source": "appsec_triage/context/routes.py",
+      "bundled": "src/appsec_triage_mcp/core/context/routes.py",
+      "source_sha256": "288d86bb0ed76175052fef12e5ab6b4f83c38fef4ff5eb2e8e7071c1e96ed0cf"
+    },
+    {
+      "source": "appsec_triage/context/routes_go.py",
+      "bundled": "src/appsec_triage_mcp/core/context/routes_go.py",
+      "source_sha256": "d43868f17ac3ddc2f9228fefa10aa201ce7fc2a538bef9b3aa8fc61f2603ae61"
+    },
+    {
+      "source": "appsec_triage/context/routes_js.py",
+      "bundled": "src/appsec_triage_mcp/core/context/routes_js.py",
+      "source_sha256": "4318ed4807b2adc938b76aa49c7d8aaded4e2c7f2edc68561fb449cae8e19dba"
+    },
+    {
+      "source": "appsec_triage/context/routes_scan.py",
+      "bundled": "src/appsec_triage_mcp/core/context/routes_scan.py",
+      "source_sha256": "69051d5a40a4a39a5aba6cc592a54dae7ea44f812470ff6fc32eba998ffcb161"
+    },
+    {
+      "source": "appsec_triage/context/source.py",
+      "bundled": "src/appsec_triage_mcp/core/context/source.py",
+      "source_sha256": "2605670d1fb68a61f4cf5b98f1b0ac9002f30fc3a804ed6fa87052742132beab"
+    },
+    {
+      "source": "appsec_triage/context/stack.py",
+      "bundled": "src/appsec_triage_mcp/core/context/stack.py",
+      "source_sha256": "a7c61f209890fd38aef706dd99aba55d9363df20b4d9d06595f5bbfce3ef5eeb"
+    },
+    {
+      "source": "appsec_triage/coverage.py",
+      "bundled": "src/appsec_triage_mcp/core/coverage.py",
+      "source_sha256": "6151d8224168b97d5f767650321886ca67f61b16e6cfee84915d961f8cecf0a5"
+    },
+    {
+      "source": "appsec_triage/deployment.py",
+      "bundled": "src/appsec_triage_mcp/core/deployment.py",
+      "source_sha256": "8c29df77ef430b2e1c20c248f457426f3e31a6b8acee6b8938b4ecf270656ba0"
+    },
+    {
+      "source": "appsec_triage/diagnostics.py",
+      "bundled": "src/appsec_triage_mcp/core/diagnostics.py",
+      "source_sha256": "f89b8e681f529828c7167bf2c82b538f198ded69d1b0680bc685839c66d8778c"
+    },
+    {
+      "source": "appsec_triage/evals/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/evals/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/evals/materialize.py",
+      "bundled": "src/appsec_triage_mcp/core/evals/materialize.py",
+      "source_sha256": "b87b0a6ac36fbb5b73adb2fabb0ebc07aae9c858c169695d123551c483d4f6f5"
+    },
+    {
+      "source": "appsec_triage/evals/metrics.py",
+      "bundled": "src/appsec_triage_mcp/core/evals/metrics.py",
+      "source_sha256": "5ae8dac80b797e6b91c7a19d56984dca0fa08048ee14d4ea106a05cb33fa8798"
+    },
+    {
+      "source": "appsec_triage/evals/runner.py",
+      "bundled": "src/appsec_triage_mcp/core/evals/runner.py",
+      "source_sha256": "77e993e687891eb506b381fe99dd20fab861f90743bad5730b98dd8d3ae2a55c"
+    },
+    {
+      "source": "appsec_triage/fastpath.py",
+      "bundled": "src/appsec_triage_mcp/core/fastpath.py",
+      "source_sha256": "1fefc7ac0b9d75594aa1d7df6a1a11c393ba0b42861c34216cee8d2a5bcec4d7"
+    },
+    {
+      "source": "appsec_triage/idor.py",
+      "bundled": "src/appsec_triage_mcp/core/idor.py",
+      "source_sha256": "e460828a61854870b69285349a29de67c4babc99b09c7caad0fd9956b54e66e3"
+    },
+    {
+      "source": "appsec_triage/ingest/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/ingest/__init__.py",
+      "source_sha256": "1d4b1dadc4b3417977d60b9b61291abaaa25d155a8739894c5d2f2a668665dcf"
+    },
+    {
+      "source": "appsec_triage/ingest/dependency.py",
+      "bundled": "src/appsec_triage_mcp/core/ingest/dependency.py",
+      "source_sha256": "e831a1cf6f7f5bd7e18fdeb1b3fbbdc044d4e1c162d14401ef52942f3d8d1b27"
+    },
+    {
+      "source": "appsec_triage/ingest/govulncheck.py",
+      "bundled": "src/appsec_triage_mcp/core/ingest/govulncheck.py",
+      "source_sha256": "3c65407fa31d866c67988781cefa7a9fb5a5e2eaeec7a8c0c60bc27f743a0be1"
+    },
+    {
+      "source": "appsec_triage/ingest/native.py",
+      "bundled": "src/appsec_triage_mcp/core/ingest/native.py",
+      "source_sha256": "fe90980b948b686fa3d91f15d05cd8410358863eaba63150fb02a3087a255402"
+    },
+    {
+      "source": "appsec_triage/ingest/sarif.py",
+      "bundled": "src/appsec_triage_mcp/core/ingest/sarif.py",
+      "source_sha256": "47a04f7b5352d0cd933c278bda0021217adee55827fa4f5a8b628b1da7aa3142"
+    },
+    {
+      "source": "appsec_triage/llm/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/llm/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/llm/base.py",
+      "bundled": "src/appsec_triage_mcp/core/llm/base.py",
+      "source_sha256": "79a6dbdd2d7dafb6c9288021c6ac3982f2762fa39fa702b2dd7bc36e2304c0b7"
+    },
+    {
+      "source": "appsec_triage/llm/factory.py",
+      "bundled": "src/appsec_triage_mcp/core/llm/factory.py",
+      "source_sha256": "56579d5eceb75d3769544af127eb54f425f25b51eb07a5a404005c439055684c"
+    },
+    {
+      "source": "appsec_triage/llm/openai_compatible.py",
+      "bundled": "src/appsec_triage_mcp/core/llm/openai_compatible.py",
+      "source_sha256": "9e547ba489e2e0e0d631fc2510a1b94d41b8785c1ea4dd8f78e515ba55b39962"
+    },
+    {
+      "source": "appsec_triage/llm/tools.py",
+      "bundled": "src/appsec_triage_mcp/core/llm/tools.py",
+      "source_sha256": "f87d93e4587cd94ce3d2ec90d4d4577f9f1fe8235547958144cc197858090314"
+    },
+    {
+      "source": "appsec_triage/lsp/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/lsp/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/lsp/client.py",
+      "bundled": "src/appsec_triage_mcp/core/lsp/client.py",
+      "source_sha256": "cc705d14ebc243f1a29616651a2bd8f807657eedccb31bc40b6e397dedc7cd98"
+    },
+    {
+      "source": "appsec_triage/lsp/code_tools.py",
+      "bundled": "src/appsec_triage_mcp/core/lsp/code_tools.py",
+      "source_sha256": "e5b4b7bbd087485843ff6d869c6d3f85be362bbd6217e6fbb7ae84e8a9e74770"
+    },
+    {
+      "source": "appsec_triage/lsp/service.py",
+      "bundled": "src/appsec_triage_mcp/core/lsp/service.py",
+      "source_sha256": "b3e97d080a6089e252f4711b29d457710a6f464ea31573ad9b35a6b70b3784b7"
+    },
+    {
+      "source": "appsec_triage/models.py",
+      "bundled": "src/appsec_triage_mcp/core/models.py",
+      "source_sha256": "7778eac277e6fbadcb6c7b86781e7a5ef074959db0a8468b9f0a4a2b403c75a6"
+    },
+    {
+      "source": "appsec_triage/pipeline.py",
+      "bundled": "src/appsec_triage_mcp/core/pipeline.py",
+      "source_sha256": "36d128e446c22a4848ce0e5b7000609e51b66d1c36cf5efc27ab23de67e0490f"
+    },
+    {
+      "source": "appsec_triage/prioritize.py",
+      "bundled": "src/appsec_triage_mcp/core/prioritize.py",
+      "source_sha256": "bcbe1493b7c1b7a61804bd53c65399df276cfe9d4ef08c44f427826ae7ed68be"
+    },
+    {
+      "source": "appsec_triage/prompts/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/prompts/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/prompts/registry.py",
+      "bundled": "src/appsec_triage_mcp/core/prompts/registry.py",
+      "source_sha256": "41b6df3a0f26499f874a2da83bfe20c0ab6eccf45df59463965fa4d0f87cf742"
+    },
+    {
+      "source": "appsec_triage/provenance.py",
+      "bundled": "src/appsec_triage_mcp/core/provenance.py",
+      "source_sha256": "9b91d83e3b574966bfbc546b428942a4e4ee49bb5ffb8a68bcc07384a0e99902"
+    },
+    {
+      "source": "appsec_triage/records.py",
+      "bundled": "src/appsec_triage_mcp/core/records.py",
+      "source_sha256": "3e7020dfca02a0323fc47aa165f880915a211f42aba3e3d0e299a8f504f39901"
+    },
+    {
+      "source": "appsec_triage/redact.py",
+      "bundled": "src/appsec_triage_mcp/core/redact.py",
+      "source_sha256": "c0fe0ce4d17d71817e5f5141f329bf93ba318b929f1d95083d3dce04950afc32"
+    },
+    {
+      "source": "appsec_triage/report/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/report/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/report/audit.py",
+      "bundled": "src/appsec_triage_mcp/core/report/audit.py",
+      "source_sha256": "278e92171791df03f32a1ae90f202033172913eb1720004c8c027eefdfec115e"
+    },
+    {
+      "source": "appsec_triage/report/html.py",
+      "bundled": "src/appsec_triage_mcp/core/report/html.py",
+      "source_sha256": "be2aed413a2da9abd91e7971a8610e01fb1b59bc7cc99c318a1390989ad62b8a"
+    },
+    {
+      "source": "appsec_triage/report/upgrades.py",
+      "bundled": "src/appsec_triage_mcp/core/report/upgrades.py",
+      "source_sha256": "c6306abcc2498600418dcba5167f0d158ef587928f8034059def83fb50af80c2"
+    },
+    {
+      "source": "appsec_triage/reuse.py",
+      "bundled": "src/appsec_triage_mcp/core/reuse.py",
+      "source_sha256": "96a9647921f803f7008cbc3d5694778b9cc02b880592ee7c13daae2b2ee10293"
+    },
+    {
+      "source": "appsec_triage/review.py",
+      "bundled": "src/appsec_triage_mcp/core/review.py",
+      "source_sha256": "fe6ebeac111cdc2ddf28c6266e9c5e4a46481f80435105997f4dc73afb6e0e83"
+    },
+    {
+      "source": "appsec_triage/review_policy.py",
+      "bundled": "src/appsec_triage_mcp/core/review_policy.py",
+      "source_sha256": "f5dc67a1ffde62684fdadb4b31b573358993ce8737893a482f438315d161db88"
+    },
+    {
+      "source": "appsec_triage/sca/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/__init__.py",
+      "source_sha256": "387d1f6d1e8b2ee2a01c9104a22d7d7a42259c29dc3d3a4a01ca89f0b0a4e017"
+    },
+    {
+      "source": "appsec_triage/sca/advisories.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/advisories.py",
+      "source_sha256": "d935f01caea93d784f3c6eb02c5cbf0ec75a70c605690c3007ac717a04ec4eb6"
+    },
+    {
+      "source": "appsec_triage/sca/bridge.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/bridge.py",
+      "source_sha256": "e016fbf2a638d9df8ff8e7d717cff482b29075fa02807ae932abc3ca2361b5d0"
+    },
+    {
+      "source": "appsec_triage/sca/cassette.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/cassette.py",
+      "source_sha256": "1bfb164f1a8590b96c7dc8bde0bdc3ea38e42fed9d501acebcff6b075b0d9a4f"
+    },
+    {
+      "source": "appsec_triage/sca/chain/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/chain/__init__.py",
+      "source_sha256": "0695568cf5807ce015f9f11fe028b1631090d29516e25939a38a54dfb30dd3ea"
+    },
+    {
+      "source": "appsec_triage/sca/chain/helpers.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/chain/helpers.py",
+      "source_sha256": "64e3aa48cc0c26edfdda5a27f6efdb718d2735eefd1b2c695388ca7fa0f79047"
+    },
+    {
+      "source": "appsec_triage/sca/chain/models.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/chain/models.py",
+      "source_sha256": "886323d44626227a8d280666bfc704e9e6d050a2138a68f835b18879b073f09d"
+    },
+    {
+      "source": "appsec_triage/sca/chain/orchestration.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/chain/orchestration.py",
+      "source_sha256": "332aa5f38a18f336dd2d30844dee6cdaff4f9251c657369f9cba1b6c4cb195b1"
+    },
+    {
+      "source": "appsec_triage/sca/chain/support.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/chain/support.py",
+      "source_sha256": "b71d137f1a75cdd0a75a97b797464e67124c3376437b3fff11312d9a823da4a7"
+    },
+    {
+      "source": "appsec_triage/sca/codeql_agent.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/codeql_agent.py",
+      "source_sha256": "715fba6c5737d086f71fa47896688e84b3ddea099934e0d9ae1a4a51105abb3f"
+    },
+    {
+      "source": "appsec_triage/sca/codeql_api.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/codeql_api.py",
+      "source_sha256": "ddd766695ff746f5d380519c7fa69b924bcfce54f147232c50f8079ca36b2cf9"
+    },
+    {
+      "source": "appsec_triage/sca/codeql_reach.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/codeql_reach.py",
+      "source_sha256": "0d88654063f5058ced2e379a7b8b19b58077e310d60f17e6676d0139b79a1e3c"
+    },
+    {
+      "source": "appsec_triage/sca/codeql_runner.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/codeql_runner.py",
+      "source_sha256": "49b17a0b378a971e9b18ff5ff2c70205ae841a2c772b560c9559d523993d7b67"
+    },
+    {
+      "source": "appsec_triage/sca/components.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/components.py",
+      "source_sha256": "cdece41b376782220bfd9e40a5d525ac653ad4aff23c997d669c3d32ff899172"
+    },
+    {
+      "source": "appsec_triage/sca/conditions.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/conditions.py",
+      "source_sha256": "214f1c6d03a824dd446b716df714673622e2570ed4944b871ffa1952594405d3"
+    },
+    {
+      "source": "appsec_triage/sca/container.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/container.py",
+      "source_sha256": "f0ea92145f3a85069cca77cb3e703842aea8449faafe101045ae8d0f41749524"
+    },
+    {
+      "source": "appsec_triage/sca/declarations.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/declarations.py",
+      "source_sha256": "1da8059a60fec95cbd529c513e127a93642c11c6eab0119923e9fb2136c6c8bc"
+    },
+    {
+      "source": "appsec_triage/sca/discover.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/discover.py",
+      "source_sha256": "8bf40bb6cfe2ed2f93e59d1163a69ec82473fa62526a5c00d25abca98f6baff0"
+    },
+    {
+      "source": "appsec_triage/sca/entrypoints/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/entrypoints/__init__.py",
+      "source_sha256": "2560c25998c5656632772555593437af0999b660cd24f710e1bf9eeab40cae7b"
+    },
+    {
+      "source": "appsec_triage/sca/entrypoints/go.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/entrypoints/go.py",
+      "source_sha256": "4c2ef926754713f1fa24bd60a7c3e7b630d83b5010011f1486227eae3db0bb75"
+    },
+    {
+      "source": "appsec_triage/sca/entrypoints/js.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/entrypoints/js.py",
+      "source_sha256": "5fbf7f9c403acd19f9f3cdf8e4bf70c839b70a408adc2625ef83b23e1f93e2dd"
+    },
+    {
+      "source": "appsec_triage/sca/entrypoints/php.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/entrypoints/php.py",
+      "source_sha256": "b791953a728e7de634740ee31b8f1d178b2e03712972fd04e0fcd15bde40f9f5"
+    },
+    {
+      "source": "appsec_triage/sca/exploitability.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/exploitability.py",
+      "source_sha256": "6893df7b77b0b0a3a0b8c4c464f26ad8e93d287a8b4b60e95f3cf2024e295cac"
+    },
+    {
+      "source": "appsec_triage/sca/exploitable.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/exploitable.py",
+      "source_sha256": "8866fe07246bda6c03b095627af7e8db14e237ead11ee85b326c68489c47c3a3"
+    },
+    {
+      "source": "appsec_triage/sca/framework_detectors.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/framework_detectors.py",
+      "source_sha256": "d2947e8975ffb8611e837d3cde4c15e4fe7d6a4c842137c561889d763e8f8c0c"
+    },
+    {
+      "source": "appsec_triage/sca/go_context.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/go_context.py",
+      "source_sha256": "67d49a43ac5e099cecdfb09a0242ebe7e9ea36a96b82ec55febd94e32ca9dd3b"
+    },
+    {
+      "source": "appsec_triage/sca/gotoolchain.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/gotoolchain.py",
+      "source_sha256": "d6570446fe5414f86c88662fbc33ea4a19b95d4a5fd4ea6d30fbf9a38e0021bc"
+    },
+    {
+      "source": "appsec_triage/sca/govulncheck.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/govulncheck.py",
+      "source_sha256": "f2ac793f0e5b7578e01cf7520ce083e6ad5d311e334d22be07fd68e074c9b15b"
+    },
+    {
+      "source": "appsec_triage/sca/graph.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/graph.py",
+      "source_sha256": "a68db2fc86a750a678f4782fe2f29a732ae03955cacc73e16379b1f0734dd80d"
+    },
+    {
+      "source": "appsec_triage/sca/install.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/install.py",
+      "source_sha256": "be599c4d7ede99e29b78f0722a207886232411a907ce210e8b4147d379ca4895"
+    },
+    {
+      "source": "appsec_triage/sca/lang/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/__init__.py",
+      "source_sha256": "3b754fd06fe69b75ebc5259ddd057d406c17d4480c73f9f418359f3427852e15"
+    },
+    {
+      "source": "appsec_triage/sca/lang/base.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/base.py",
+      "source_sha256": "2ad9942e32b9bd53a2407a9cab84d6831d8ae10dfcf13d162327467b35383042"
+    },
+    {
+      "source": "appsec_triage/sca/lang/builtins/go.txt",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/builtins/go.txt",
+      "source_sha256": "fd26a136ade94980c3a38a3b4805b0d0eac7fb17738fb6f69cc049d36ce38b38"
+    },
+    {
+      "source": "appsec_triage/sca/lang/builtins/js.txt",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/builtins/js.txt",
+      "source_sha256": "fc9a8fe80742fad910e555fe6f86efd42d7c88b72a32ca328720ab3943683010"
+    },
+    {
+      "source": "appsec_triage/sca/lang/builtins/php.txt",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/builtins/php.txt",
+      "source_sha256": "9de35291db52881183d082fbd12c46dd8895052fa3b96ae070c7181577ff22bc"
+    },
+    {
+      "source": "appsec_triage/sca/lang/go.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/go.py",
+      "source_sha256": "50a325ec3ba7cd7aac5f213c4157934ea9f374cb5b441644913b1c2a2cf5d687"
+    },
+    {
+      "source": "appsec_triage/sca/lang/js.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/js.py",
+      "source_sha256": "b225f64f6f7a19f1aa8e1109c9cb8579030f658fdc0f8360ea7ac5bd1882238d"
+    },
+    {
+      "source": "appsec_triage/sca/lang/php.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/lang/php.py",
+      "source_sha256": "4c1aa5c90637deb6f5b63e5a70db510e0b12157d1035acb305a959fd18da7ba3"
+    },
+    {
+      "source": "appsec_triage/sca/llm_advisory.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/llm_advisory.py",
+      "source_sha256": "9ca20173209dad3201b6a01ccd1ffe7ee7b8153754d4d40a3c32e72c4a36eb50"
+    },
+    {
+      "source": "appsec_triage/sca/lsp_tools.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/lsp_tools.py",
+      "source_sha256": "6aa0f4568ef997e6be1356d236cc96953f9af8b09b5fd24cf3d5d1e73150156b"
+    },
+    {
+      "source": "appsec_triage/sca/platform.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/platform.py",
+      "source_sha256": "fedc3fa44c70bca31b11fe94df7ea93be006c3103c9df146b98f580dbf3d6bc1"
+    },
+    {
+      "source": "appsec_triage/sca/policy.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/policy.py",
+      "source_sha256": "7a13b1710e5bbd6f51a925de253fcd04c85f6b2178645657cc8f7fa25102e0b3"
+    },
+    {
+      "source": "appsec_triage/sca/presence.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/presence.py",
+      "source_sha256": "a82b05713addf0487586a34536e1def96f9de1a6e9aa5bce4399f24704b9180d"
+    },
+    {
+      "source": "appsec_triage/sca/psalm_api.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/psalm_api.py",
+      "source_sha256": "99c9e6e14d2281b3e8f19630b6eb0d26892c5b55537e00bfff577495effd8beb"
+    },
+    {
+      "source": "appsec_triage/sca/reach.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/reach.py",
+      "source_sha256": "0ab1ec4f74394aa1626b56f2f8d1738d967b020f55d85e40af59351dc3e47b4c"
+    },
+    {
+      "source": "appsec_triage/sca/receiver.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/receiver.py",
+      "source_sha256": "428cf65d0eb0dc3977c95795ed88980dcd84a65c6427e0286ac0d62766073183"
+    },
+    {
+      "source": "appsec_triage/sca/registries.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/registries.py",
+      "source_sha256": "9b92ab0dc90fd293c6c74d749bcc7cb107cb38b1085681f1387be1e27e9be465"
+    },
+    {
+      "source": "appsec_triage/sca/request_readers.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/request_readers.py",
+      "source_sha256": "526facfadd876e9ae627301675bbaed353af896bd92138bdc4dbc626f4f17c58"
+    },
+    {
+      "source": "appsec_triage/sca/resolve.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/resolve.py",
+      "source_sha256": "beca3c490dca7a6e9d4608e6e170f03e3f5fe84c5d6b7e0c199ab4a24bf21001"
+    },
+    {
+      "source": "appsec_triage/sca/resolve_cache.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/resolve_cache.py",
+      "source_sha256": "f76b5a11c426504e8a17e0e33e3e884f9aca9bd077f5294a9e93f75f430c0197"
+    },
+    {
+      "source": "appsec_triage/sca/sbom.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/sbom.py",
+      "source_sha256": "5fd095cfead8a65ace3876d61276165e75ec5a40278556af81b939659f130b4f"
+    },
+    {
+      "source": "appsec_triage/sca/shipping.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/shipping.py",
+      "source_sha256": "59c21be869f202f4ac39876eda8f876b309a59396132419f3df0c13395011945"
+    },
+    {
+      "source": "appsec_triage/sca/unreached.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/unreached.py",
+      "source_sha256": "e0b1f62d40eee0c3ff6a2ff51299c1a10609d4fd2b47d486780822ca5f80198b"
+    },
+    {
+      "source": "appsec_triage/sca/verdict.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/verdict.py",
+      "source_sha256": "67a06d06d89e9a152146d167f93eda04e1bb2c2606b1a1c1214fa091308d86f9"
+    },
+    {
+      "source": "appsec_triage/sca/versions.py",
+      "bundled": "src/appsec_triage_mcp/core/sca/versions.py",
+      "source_sha256": "c004082489eebae2d289609c30a5a4750e84a022ad108454a5fa0cb28e0ffe80"
+    },
+    {
+      "source": "appsec_triage/scanners/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/scanners/__init__.py",
+      "source_sha256": "dc7351afdaec15c58ff9e3685b31c84aeafcdf85ad11093fa222aaf6c4b3634a"
+    },
+    {
+      "source": "appsec_triage/scanners/base.py",
+      "bundled": "src/appsec_triage_mcp/core/scanners/base.py",
+      "source_sha256": "0a85a78a68f1af1d36d8c3811bf0d29d1b923f392e238238cb446274afecdd2b"
+    },
+    {
+      "source": "appsec_triage/scanners/opengrep.py",
+      "bundled": "src/appsec_triage_mcp/core/scanners/opengrep.py",
+      "source_sha256": "785fdf96fc9f2bf4daa6384372ff6e7deb8d26fcff2a3a59bad129bd2d5b5005"
+    },
+    {
+      "source": "appsec_triage/scanners/selection.py",
+      "bundled": "src/appsec_triage_mcp/core/scanners/selection.py",
+      "source_sha256": "176034e5db428b71e821b3af97376a61a2bc6c84e0665603c23b2dd0f47af929"
+    },
+    {
+      "source": "appsec_triage/scanners/tools.py",
+      "bundled": "src/appsec_triage_mcp/core/scanners/tools.py",
+      "source_sha256": "9f4affb8140b1ee8335c30dc46429defa91bca767b54a3dc1038ec4d699f5609"
+    },
+    {
+      "source": "appsec_triage/scope.py",
+      "bundled": "src/appsec_triage_mcp/core/scope.py",
+      "source_sha256": "38e0bfccc664c5aeb83f093b933161764b34e54a35a4d54a3b9d271c9033d198"
+    },
+    {
+      "source": "appsec_triage/secrets.py",
+      "bundled": "src/appsec_triage_mcp/core/secrets.py",
+      "source_sha256": "32ea71aef49c66d14852417e0904f0eb64dd9fa8dc9f10d82b7ba128c951a7fc"
+    },
+    {
+      "source": "appsec_triage/sourcetext.py",
+      "bundled": "src/appsec_triage_mcp/core/sourcetext.py",
+      "source_sha256": "afe99f08c811e3285a230978a32f465fbfe41f6ccfb46bb2350167fae2dd9115"
+    },
+    {
+      "source": "appsec_triage/testpaths.py",
+      "bundled": "src/appsec_triage_mcp/core/testpaths.py",
+      "source_sha256": "ccba9ab43a7953759c5d69569f393599cce0965957291a8141807571be7b1ce5"
+    },
+    {
+      "source": "appsec_triage/timing.py",
+      "bundled": "src/appsec_triage_mcp/core/timing.py",
+      "source_sha256": "eec0efd28d0b872e68efe1814acb2fe56b6fe75df8063c664e75c306bc1b7b96"
+    },
+    {
+      "source": "appsec_triage/validate/__init__.py",
+      "bundled": "src/appsec_triage_mcp/core/validate/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "appsec_triage/validate/postvalidation.py",
+      "bundled": "src/appsec_triage_mcp/core/validate/postvalidation.py",
+      "source_sha256": "bcf8a2c9e970fbdbd7f249577dd566ee7737f35ccb28595c62e05fbe903ce77e"
+    },
+    {
+      "source": "appsec_triage/validate/schema.py",
+      "bundled": "src/appsec_triage_mcp/core/validate/schema.py",
+      "source_sha256": "7a2dcfcdcdd34412ffd308e9a99388e9de314e989edf9150440d3aa472e18fc0"
+    },
+    {
+      "source": "appsec_triage/variants.py",
+      "bundled": "src/appsec_triage_mcp/core/variants.py",
+      "source_sha256": "3fe56c1d2f880d8d63596897c2edd06ab3d356ffd827c19a481c589357d0b9a3"
+    },
+    {
+      "source": "appsec_triage/verify.py",
+      "bundled": "src/appsec_triage_mcp/core/verify.py",
+      "source_sha256": "b9e381268927c4fa04a97ca8e2f9da04ccafbd40004dc6fa5a9e19a53a6f3035"
+    },
+    {
+      "source": "configs/codeql/models/go/models/github.com.gofiber.fiber.model.yml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/codeql/models/go/models/github.com.gofiber.fiber.model.yml",
+      "source_sha256": "9e8243d1ffc013fe85e9deab12d02a6a8793cd6de755a1353f1222d74ef0b7e4"
+    },
+    {
+      "source": "configs/codeql/models/go/qlpack.yml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/codeql/models/go/qlpack.yml",
+      "source_sha256": "ff81471f630a8469aa73d55e885f84de14c0696b2349cf89a2bcd49cb9930e58"
+    },
+    {
+      "source": "configs/deployment.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/deployment.yaml",
+      "source_sha256": "7e2b1f41ee673988307c07e1a5b85c07a262c21d0efc8130a28a3572bd3666e6"
+    },
+    {
+      "source": "configs/lsp-php-only.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/lsp-php-only.yaml",
+      "source_sha256": "b3b43ebfdfe2463820e450cf1a74328352ea9f6d6d10ae8b2e4111e406d2e385"
+    },
+    {
+      "source": "configs/lsp.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/lsp.yaml",
+      "source_sha256": "f7168fa946a9043c021839bd909c1811dcccc02dd16cd5c10dd10032bf9c1561"
+    },
+    {
+      "source": "configs/opengrep-rules/owasp-top-ten.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/owasp-top-ten.yaml",
+      "source_sha256": "983513761ad687c438843c13974af3694036898db19170dd50e838e42b017649"
+    },
+    {
+      "source": "configs/opengrep-rules/php/doctrine/security/audit/doctrine-dbal-dangerous-query.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/doctrine/security/audit/doctrine-dbal-dangerous-query.yaml",
+      "source_sha256": "176bb9d8f88f04dfc1b1edec789d502f38226a380540bf5d65719ad56e7c5b3d"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/audit/openssl-decrypt-validate.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/audit/openssl-decrypt-validate.yaml",
+      "source_sha256": "7f10cb44b285df5d23ac52d7a697210b43c3c406f9d43e7a9fbd7b35b9434b7b"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/backticks-use.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/backticks-use.yaml",
+      "source_sha256": "54d23020f699a7114461d219add9af4c232097485a2c00bc2c4d47e1a4d74d1e"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/eval-use.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/eval-use.yaml",
+      "source_sha256": "fb009fc28fad1a50aab12d114b8e6d1b4d05ab39785d91e6850e0f621da7323d"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/exec-use.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/exec-use.yaml",
+      "source_sha256": "51412ee5d54fc5ec5f70c9b30c235da42fc79ebbcfc30e2b888c556d62d96210"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/file-inclusion.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/file-inclusion.yaml",
+      "source_sha256": "f776569ea947fba2edeb4a9352fbe523765d1e0577ad6d759612b2093ed38c23"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/ldap-bind-without-password.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/ldap-bind-without-password.yaml",
+      "source_sha256": "442493040e9fcf2510aed00c74a71403218508859ce037aaaa5c91b8e5e212f2"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/mb-ereg-replace-eval.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/mb-ereg-replace-eval.yaml",
+      "source_sha256": "867ac4d55a02f0c77852c62a3adf67a67fd2b64e44b8eb4157646c9fcc114183"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/mcrypt-use.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/mcrypt-use.yaml",
+      "source_sha256": "e195f27213f475d8b99a2eb5ce8a057409b643be593372871f88bca1e29e0b60"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/php-permissive-cors.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/php-permissive-cors.yaml",
+      "source_sha256": "70883b92b3a749cfba013f5aa442fc34aa2f354495275fd210f8490112700d2c"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/php-ssrf.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/php-ssrf.yaml",
+      "source_sha256": "eea6671e70ff2dfa2b061819b46bce949adecb535d54acedacda5fd3f8f3b736"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/unserialize-use.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/unserialize-use.yaml",
+      "source_sha256": "cf58d543ccf253ea06baea78e2b0f309cac889978b42e8389ba80453be4f880d"
+    },
+    {
+      "source": "configs/opengrep-rules/php/lang/security/weak-crypto.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/lang/security/weak-crypto.yaml",
+      "source_sha256": "e8010b69a9b846790b61df7fcac94e7733b6257fbcb79ccc2311e4423c9d7e6d"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-active-debug-code.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-active-debug-code.yaml",
+      "source_sha256": "8ae44f6d30b6aa591ff31d2e3b12f9d3c9fafd3647f4c295444e463e63f986be"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-blade-form-missing-csrf.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-blade-form-missing-csrf.yaml",
+      "source_sha256": "087d1bea2b8399f1a5bbedc71d2b518b0dc163bb94e85776818246ab815ef9a1"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-cookie-http-only.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-cookie-http-only.yaml",
+      "source_sha256": "19341329392242196471c5f7f21af2a2bc947b79fe05bb150a1eb0916b981c18"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-cookie-long-timeout.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-cookie-long-timeout.yaml",
+      "source_sha256": "502cf0646209539b6d4f38e3c0d751004a2711653f136fe1929403a5402d9d98"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-cookie-null-domain.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-cookie-null-domain.yaml",
+      "source_sha256": "ef7836d883d7407a0c733fce7cb7e7144c2f76f15b508d9baf6b160787578316"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-cookie-same-site.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-cookie-same-site.yaml",
+      "source_sha256": "0f50093f785c2026d5b4d36636a2cef11c71173b0f4d20d754e639a187844ed7"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-cookie-secure-set.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-cookie-secure-set.yaml",
+      "source_sha256": "a142a694ad8e45460fb89dff456403d2047df79e80d7869d0b2d6f1457d18fca"
+    },
+    {
+      "source": "configs/opengrep-rules/php/laravel/security/laravel-dangerous-model-construction.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/laravel/security/laravel-dangerous-model-construction.yaml",
+      "source_sha256": "c13a6f2373e1e6bfa0a60dad7b68633b6b7ce756284cd981a7515069219bdc27"
+    },
+    {
+      "source": "configs/opengrep-rules/php/symfony/security/audit/symfony-csrf-protection-disabled.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/symfony/security/audit/symfony-csrf-protection-disabled.yaml",
+      "source_sha256": "530133f5cc8461208cb8230fd84a0dc153f078755f96c2662a97dc391f6c659d"
+    },
+    {
+      "source": "configs/opengrep-rules/php/symfony/security/audit/symfony-non-literal-redirect.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/symfony/security/audit/symfony-non-literal-redirect.yaml",
+      "source_sha256": "6bd90fd6505b2b885a784e5f8237c159ad81a9ed71bb5b9a863e2d9b93dd9844"
+    },
+    {
+      "source": "configs/opengrep-rules/php/symfony/security/audit/symfony-permissive-cors.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/php/symfony/security/audit/symfony-permissive-cors.yaml",
+      "source_sha256": "c75bf8ee38d92c6ee20e8e840c149b23c3eae41a25636d32ff7e75f9d1faf0e2"
+    },
+    {
+      "source": "configs/opengrep-rules/security-audit.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/security-audit.yaml",
+      "source_sha256": "6d2f9a77b0372395072aa859ffd47f57b5851e1511da72a6c1b7ff9898ee1313"
+    },
+    {
+      "source": "configs/opengrep-rules/SOURCES.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/opengrep-rules/SOURCES.md",
+      "source_sha256": "74f2c01cba6f7f51da631071657d330707990bbc50708060937e77e328f0b708"
+    },
+    {
+      "source": "configs/pipeline-high.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/pipeline-high.yaml",
+      "source_sha256": "cdbab3c6082251b416b02aa88750375236dd38eb6cfb08d80afaf7cc1ba7941c"
+    },
+    {
+      "source": "configs/pipeline-php.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/pipeline-php.yaml",
+      "source_sha256": "767b30ac019948a3600d3ace435c9f6d10ab4844cc59f8e74fabaffc33737307"
+    },
+    {
+      "source": "configs/pipeline.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/pipeline.yaml",
+      "source_sha256": "c9a6400202e81c80b38267cb45c9d7e9d27132a93b9428952ef86460ad218d24"
+    },
+    {
+      "source": "configs/providers/llm.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/providers/llm.yaml",
+      "source_sha256": "2ef5b77e6c9bca0e2ec0d0edfe884f208cb4a89c90d0ddd7994053c31be4e045"
+    },
+    {
+      "source": "configs/psalm/framework-taint.phpstub",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/psalm/framework-taint.phpstub",
+      "source_sha256": "c703ca0a544442a7a32e3c0cbfc8295487525633da27ce39232bbaff7c0ba306"
+    },
+    {
+      "source": "configs/scanners/codeql.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/scanners/codeql.yaml",
+      "source_sha256": "2352ca1b564b1cf66a26c288556117c9d29c967c4c00f5535b039defaebc7d7c"
+    },
+    {
+      "source": "configs/scanners/govulncheck.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/scanners/govulncheck.yaml",
+      "source_sha256": "b75bc51449850f96998ddadb30e30b0088b6a2cbacd62700cdbde9d6a16cd91b"
+    },
+    {
+      "source": "configs/scanners/opengrep.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/scanners/opengrep.yaml",
+      "source_sha256": "a1a6b7f1c6cbd2823f24c55da21e802fe1db58ce1b4ccacecef348a110942fb2"
+    },
+    {
+      "source": "configs/scanners/psalm.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/scanners/psalm.yaml",
+      "source_sha256": "1e09025e6254018680f59cdebd88500c0bedc45189939571094f8755fbe21094"
+    },
+    {
+      "source": "configs/scanners/wolfee.yaml",
+      "bundled": "src/appsec_triage_mcp/core/assets/configs/scanners/wolfee.yaml",
+      "source_sha256": "9de2e0ade5e6f75ff7d048e4c3110759a8b298b9c204e2dbadabbd4ca1be4bac"
+    },
+    {
+      "source": "prompts/context/common.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/context/common.md",
+      "source_sha256": "33379e5458dfe459ae915832109f9c415596840a9ffc872e799c26a6b2c2cb5b"
+    },
+    {
+      "source": "prompts/context/composer.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/context/composer.md",
+      "source_sha256": "9ee181e6d36d1919c9f6e71cabf0368cf9f25f04e40dfc3e0e453f62441aa139"
+    },
+    {
+      "source": "prompts/context/go.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/context/go.md",
+      "source_sha256": "0044b7e78a868402937afcc40088da421f8d5224a625bf4db704865f1ff52d38"
+    },
+    {
+      "source": "prompts/context/maven.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/context/maven.md",
+      "source_sha256": "edeb8ded1968f94da09fb43aaf888fae218f3887cf4e4c75d6bd7eb33219e6c4"
+    },
+    {
+      "source": "prompts/context/npm.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/context/npm.md",
+      "source_sha256": "9f0e964a61ba96bbeb7f2c6161afa15d8441880e82c738619c782eceddd035cb"
+    },
+    {
+      "source": "prompts/context/nuget.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/context/nuget.md",
+      "source_sha256": "9b67604f071a9d22a6bf0a5720e6018e12883a2fa37066f00c41c19e5a858c20"
+    },
+    {
+      "source": "prompts/context/pypi.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/context/pypi.md",
+      "source_sha256": "8e38d278bf1a2e9c5a1ae4bdfb4f1be64e3f4a541bec2e8eaeedf0c07bf13579"
+    },
+    {
+      "source": "prompts/default/_challenge.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/_challenge.md",
+      "source_sha256": "78caf07a245d5a04b52983dbf999e17cb47a1a166f2995a04287fdb0a719e5eb"
+    },
+    {
+      "source": "prompts/default/_sanitizers.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/_sanitizers.md",
+      "source_sha256": "4754d56e435d1c5c4a6d72422f9a97453da8cedfea70c6aec177036e6b124e88"
+    },
+    {
+      "source": "prompts/default/base.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/base.md",
+      "source_sha256": "a307da9180e56346b9a029861296e739f5b0894bf195642b135f17bf9f5f288d"
+    },
+    {
+      "source": "prompts/default/crypto.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/crypto.md",
+      "source_sha256": "21c532c6f2e3eb7a195b42476417ff54d4cc155696b452994dc753a4009bfc35"
+    },
+    {
+      "source": "prompts/default/cwe-328.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/cwe-328.md",
+      "source_sha256": "29b2c19651585796eb7cbc2dd489dc36b41d9f9f59a63c8ba5ccf1f56f446ba5"
+    },
+    {
+      "source": "prompts/default/cwe-330.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/cwe-330.md",
+      "source_sha256": "e398c808d3a1288bf4f8ba0727fd39cbed52d367e6833b246247043fb8dc77d5"
+    },
+    {
+      "source": "prompts/default/cwe-639.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/cwe-639.md",
+      "source_sha256": "3969abd04fc18b82c5ac544dd26602571a220e5cce2c831f3dc527aabc8dfc53"
+    },
+    {
+      "source": "prompts/default/cwe-798.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/cwe-798.md",
+      "source_sha256": "88eac758368b690d10db5a8909349714f8f9b4907bad624b6fdbde3a0d9eb3e4"
+    },
+    {
+      "source": "prompts/default/cwe-862.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/cwe-862.md",
+      "source_sha256": "b6a39dbf7f38f1f3ce2863a9531d1686aeb2676d80f8452d1905096bfd67dc31"
+    },
+    {
+      "source": "prompts/default/cwe-916.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/cwe-916.md",
+      "source_sha256": "31e5a6153050ebb11904b043f990191976125cba173d0e255547aecd52e94ac4"
+    },
+    {
+      "source": "prompts/default/injection.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/injection.md",
+      "source_sha256": "02e0717c2db6dd5f715ca04bc8bc7ad5f07b12dea7ed9413b44f86602b995570"
+    },
+    {
+      "source": "prompts/default/log-injection.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/log-injection.md",
+      "source_sha256": "c1e02fde8d6e882b6f9b4088a06b2a0c9b1adf1975df0278d509d7d1db6398c7"
+    },
+    {
+      "source": "prompts/default/sca.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/default/sca.md",
+      "source_sha256": "705e807aea35e3b6858e05e8f774f404b5df04be3f01277c6e137ddce8d4429c"
+    },
+    {
+      "source": "prompts/sca/closure-audit.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/closure-audit.md",
+      "source_sha256": "50419c5c7ea20ca12ec38dc278b20a3fe3286056a7556665eb26a19f712b5bb6"
+    },
+    {
+      "source": "prompts/sca/closure-search.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/closure-search.md",
+      "source_sha256": "171642550adc5049ec1105543d7887c935f2ee40b4837a0fedb98bdff3da3823"
+    },
+    {
+      "source": "prompts/sca/codeql-agent-tools.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/codeql-agent-tools.md",
+      "source_sha256": "94b0ecdee5d85bd38b388685da94f8769e37e394e621f3c8d61d2913b236e3f8"
+    },
+    {
+      "source": "prompts/sca/codeql-agent.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/codeql-agent.md",
+      "source_sha256": "655bd978b3452dd8ab9c2e571596b26d438ff886907b0195e76e46bf072bf346"
+    },
+    {
+      "source": "prompts/sca/component.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/component.md",
+      "source_sha256": "2f012382874216533552649cc8c19d9d9f26866daa6e43ea84fe74aefee54bb3"
+    },
+    {
+      "source": "prompts/sca/deployment.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/deployment.md",
+      "source_sha256": "e96267acb4a2f258e5cc0fd397d12389a43410012f8428697f3293d66863e079"
+    },
+    {
+      "source": "prompts/sca/exploitable-search.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/exploitable-search.md",
+      "source_sha256": "36d5fb6f09a2593ec25bce39ec06594d0d8721ecd7f588ee3716e837de29cb12"
+    },
+    {
+      "source": "prompts/sca/exploitable.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/exploitable.md",
+      "source_sha256": "7c35c1b9e98f0d0de14ab06dc86e7c2ce2d1bf5b5288d657d9550471a1c42546"
+    },
+    {
+      "source": "prompts/sca/receiver.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/receiver.md",
+      "source_sha256": "1025b994d2cf06d1cdf00faefeb5bbe43d14a095b5559f9be1dd07c514082788"
+    },
+    {
+      "source": "prompts/sca/symbol-last-resort.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/symbol-last-resort.md",
+      "source_sha256": "04255dad36ba4ccd6f25f771d0d961d9970ec69ee7673891bdfa00342b2f4ad0"
+    },
+    {
+      "source": "prompts/sca/symbol.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/symbol.md",
+      "source_sha256": "a2f4eab2c0533237ad1d0d66ac440ff0ca9506e1f3456cb7162a42f7e54f2d0c"
+    },
+    {
+      "source": "prompts/sca/taint.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/taint.md",
+      "source_sha256": "097598770ef2ba5ed46cdbff99cbdda1a5f668ffa544f4ecd824f4c27aa53d91"
+    },
+    {
+      "source": "prompts/sca/unreachable-audit.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/unreachable-audit.md",
+      "source_sha256": "e95e0b60393686f6057ec9b8f68b6f4f0e61c8a4f3bcb45eee0f0d9a31ba3166"
+    },
+    {
+      "source": "prompts/sca/unreachable-search.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/sca/unreachable-search.md",
+      "source_sha256": "f55994b813d50a6bc871effec19ec77d6096e6750a6ce78a21710c91fee61c9f"
+    },
+    {
+      "source": "prompts/stacks/express.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/stacks/express.md",
+      "source_sha256": "972ac50183001043d507e8f73a32a45ad9912b3920722f0aa29d2b578311ed14"
+    },
+    {
+      "source": "prompts/stacks/fiber.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/stacks/fiber.md",
+      "source_sha256": "9ad24d8e700a4fcbe7cc2ad3ee699ea0e6ec2552d88f90c659aa28265defaeba"
+    },
+    {
+      "source": "prompts/stacks/go.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/stacks/go.md",
+      "source_sha256": "36f0296d064e41112251e52373b4f5e54924f3e556c7fc57178b23d4f87be284"
+    },
+    {
+      "source": "prompts/stacks/laravel.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/stacks/laravel.md",
+      "source_sha256": "195b9e2983f6ad9abc189923f67adffa1bc4a7184957c777ff9914e325544553"
+    },
+    {
+      "source": "prompts/stacks/spring.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/stacks/spring.md",
+      "source_sha256": "9dc70debd8725d677d6cf000e295a69d80d6464151bc70a3289aff8eefecc4b1"
+    },
+    {
+      "source": "prompts/stacks/symfony.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/stacks/symfony.md",
+      "source_sha256": "abe5f45ee6ec29ba8d9d88889ca602aa4ef6315a0e46b5d7adef525c2a80ef9c"
+    },
+    {
+      "source": "prompts/stacks/vue.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/stacks/vue.md",
+      "source_sha256": "d7e5f7be26d3ab8cf2249f9e57b2e5bbdb6f128fc1af45a898b8c04fad40aee9"
+    },
+    {
+      "source": "prompts/training-context.md",
+      "bundled": "src/appsec_triage_mcp/core/assets/prompts/training-context.md",
+      "source_sha256": "262f85d90f0d453ff81744320fd2b00f3e7dec56384d44f4c4e93b8eaef9d1f0"
+    }
+  ]
+}

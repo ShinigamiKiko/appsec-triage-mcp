@@ -1,0 +1,435 @@
+"""Provider-agnostic LLM interface."""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+import threading
+import time
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from typing import Any, Protocol, runtime_checkable
+
+import httpx
+
+from .. import timing
+
+
+class LLMError(RuntimeError):
+    """Non-retryable provider failure."""
+
+
+class LLMRetryableError(LLMError):
+    """Transient failure: timeout, 429, 5xx, connection reset."""
+
+
+class LLMAuthError(LLMError):
+    """The provider refused the credentials (HTTP 401/403).
+
+    Fatal for the whole run: every later call would fail the same way, so the
+    client remembers it and refuses further calls without touching the network.
+    """
+
+
+class LLMTruncated(LLMError):
+    """The reply hit the output limit: a longer limit helps, the same request again does not."""
+
+
+log = logging.getLogger(__name__)
+
+_BUDGET = threading.local()
+_QUOTA_EXHAUSTED = re.compile(r"usage limit|insufficient_quota|quota exceeded|exceeded your current quota", re.I)
+_FINDING: ContextVar[FindingBudget | None] = ContextVar("appsec_finding_budget", default=None)
+
+
+@dataclass
+class FindingBudget:
+    limit: int
+    charged: int = 0
+    estimated: int = 0
+    calls: int = 0
+    refused: bool = False
+    lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    @contextmanager
+    def active(self):
+        token = _FINDING.set(self)
+        try:
+            yield
+        finally:
+            _FINDING.reset(token)
+
+    def reserve(self, payload: dict, output_limit: int) -> int:
+        # UTF-8 bytes bound the visible text for byte-level tokenizers. Allow
+        # extra tokens for chat framing; the provider supplies actual usage later.
+        size = len(json.dumps(payload, ensure_ascii=False).encode()) + 1024
+        reservation = size + output_limit
+        with self.lock:
+            if self.charged + reservation > self.limit:
+                self.refused = True
+                raise LLMError(f"finding token limit {self.limit} reached: "
+                               f"{self.limit - self.charged} left, {reservation} needed for the next request")
+            self.charged += reservation
+            self.estimated += reservation
+            self.calls += 1
+        return reservation
+
+    def settle(self, reservation: int, body: dict) -> None:
+        usage = body.get("usage") or {}
+        prompt = body.get("prompt_eval_count", usage.get("prompt_tokens"))
+        completion = body.get("eval_count", usage.get("completion_tokens"))
+        if all(isinstance(n, int) and n >= 0 for n in (prompt, completion)) and prompt + completion > 0:
+            with self.lock:
+                self.charged += prompt + completion - reservation
+                self.estimated -= reservation
+
+
+@contextmanager
+def output_budget(tokens: int):
+    """Allow replies of up to `tokens` for the calls made inside, on this thread."""
+    previous = getattr(_BUDGET, "tokens", None)
+    _BUDGET.tokens = max(tokens, previous or 0)
+    try:
+        yield
+    finally:
+        _BUDGET.tokens = previous
+
+
+class _UnparsableReply(LLMRetryableError):
+    """The reply was delivered but is not the JSON the schema asked for."""
+
+
+@dataclass(slots=True)
+class LLMResponse:
+    text: str
+    model: str
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    latency_ms: int = 0
+    attempts: int = 1
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+@dataclass(slots=True)
+class ToolCall:
+    """One tool invocation the model asked for."""
+
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass(slots=True)
+class ToolTurn:
+    """One model turn in a native tool-calling conversation."""
+
+    text: str
+    tool_calls: list[ToolCall]
+    message: dict[str, Any]
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    latency_ms: int = 0
+    attempts: int = 1
+
+
+def loads_relaxed(text: str) -> Any:
+    """Parse a model's JSON, tolerating raw control characters inside strings.
+
+    A model quoting source code writes the newline it saw, where the standard
+    wants `\n`. Python's parser refuses that by default, so a reply that is
+    otherwise perfectly good is thrown away and asked for again. Nothing else
+    is relaxed: a genuinely broken reply still raises.
+    """
+    try:
+        return json.loads(text)
+    except ValueError:
+        return json.loads(text, strict=False)
+
+
+def to_strict_json(text: str) -> str:
+    """Accept a single JSON value, optionally wrapped in one Markdown code block."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("пустой ответ" if text is None or isinstance(text, str) else "нет текстового ответа")
+    stripped = text.strip()
+    opening, _, remainder = stripped.partition("\n")
+    if opening.strip().lower() in ("```json", "```"):
+        body, newline, closing = remainder.rpartition("\n")
+        if newline and closing.strip() == "```":
+            stripped = body
+    try:
+        value = loads_relaxed(stripped)
+    except ValueError as exc:
+        shape = "кодовый блок" if "```" in text else "текст"
+        position = f", строка {exc.lineno}, столбец {exc.colno}" if isinstance(exc, json.JSONDecodeError) else ""
+        raise ValueError(f"форма ответа — {shape}{position}") from exc
+    return json.dumps(value, ensure_ascii=False)
+
+
+def tool_arguments(raw: Any) -> dict[str, Any]:
+    """A tool call's arguments as a dict, however the provider encoded them."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            value = loads_relaxed(raw)
+        except ValueError:
+            return {}
+        return value if isinstance(value, dict) else {}
+    return {}
+
+
+@runtime_checkable
+class LLMClient(Protocol):
+    """The only surface the pipeline depends on."""
+
+    name: str
+    model: str
+
+    def complete(self, system: str, user: str, *, json_schema: dict[str, Any] | None = None) -> LLMResponse: ...
+
+    def estimate_cost(self, prompt_tokens: int | None, completion_tokens: int | None) -> float | None: ...
+
+    def close(self) -> None: ...
+
+
+class BaseHTTPClient(ABC):
+    """Shared transport: one httpx client, bounded retries, exponential backoff."""
+
+    def __init__(self, cfg: ProviderConfig) -> None:  # noqa: F821 - forward ref, see config.py
+        self.cfg = cfg
+        self.name = cfg.name
+        self.model = cfg.model
+        self._spend_lock = threading.Lock()
+        self.calls = 0
+        self.prompt_tokens_total = 0
+        self.completion_tokens_total = 0
+        self.spend_usd = 0.0
+        self._native_tools_rejected = False
+        self._request_slots = threading.BoundedSemaphore(max(1, cfg.concurrency))
+        self.fatal_error: LLMAuthError | None = None
+        self._client = httpx.Client(
+            base_url=cfg.base_url,
+            timeout=httpx.Timeout(cfg.timeout_s, connect=cfg.connect_timeout_s),
+            headers=self._headers(),
+        )
+
+
+    @abstractmethod
+    def _headers(self) -> dict[str, str]: ...
+
+    @abstractmethod
+    def _build_payload(self, system: str, user: str, json_schema: dict[str, Any] | None) -> tuple[str, dict[str, Any]]:
+        """Return (path, json_body)."""
+
+    @abstractmethod
+    def _parse(self, body: dict[str, Any]) -> tuple[str, int | None, int | None]:
+        """Return (text, prompt_tokens, completion_tokens)."""
+
+
+    def _refuse_if_fatal(self) -> None:
+        if self.fatal_error is not None:
+            raise self.fatal_error
+
+    def _post(self, path: str, payload: dict) -> httpx.Response:
+        budget = _FINDING.get()
+        if budget is None:
+            with self._request_slots:
+                return self._client.post(path, json=payload)
+        max_output = payload.get(self.cfg.output_token_field, self._max_tokens())
+        if not isinstance(max_output, int) or isinstance(max_output, bool) or max_output < 1:
+            raise LLMError("a positive output limit is required for a per-finding token budget")
+        reserved = budget.reserve(payload, max_output)
+        with self._request_slots:
+            response = self._client.post(path, json=payload)
+        # A timeout, malformed reply or missing usage keeps the reservation.
+        if response.is_success:
+            try:
+                body = response.json()
+            except ValueError:
+                return response
+            if isinstance(body, dict):
+                budget.settle(reserved, body)
+        return response
+
+    def _auth_failure(self, resp: httpx.Response) -> None:
+        """Remember and raise a credentials or quota refusal: nothing after it can succeed."""
+        if resp.status_code == 429 and _QUOTA_EXHAUSTED.search(resp.text or ""):
+            # A monthly or plan limit does not clear in seconds; retrying every finding only delays the report.
+            self.fatal_error = LLMAuthError(
+                f"{self.name}: HTTP 429 — исчерпан лимит использования у провайдера: {resp.text[:300]}")
+            raise self.fatal_error
+        if resp.status_code in (401, 403):
+            self.fatal_error = LLMAuthError(
+                f"{self.name}: HTTP {resp.status_code} — ключ API не принят провайдером: {resp.text[:300]}")
+            raise self.fatal_error
+
+    def ping(self) -> None:
+        """One tiny call before the run: a bad key or an unreachable endpoint fails in
+        seconds instead of after the scanners and the SCA preparation."""
+        self.complete('Reply with the json object {"ok": true} and nothing else.', "ping — answer in json")
+
+    def _max_tokens(self) -> int:
+        """The profile's limit, expanded when a step requests a larger output budget."""
+        return max(self.cfg.max_tokens, getattr(_BUDGET, "tokens", None) or 0)
+
+    def complete(self, system: str, user: str, *, json_schema: dict[str, Any] | None = None) -> LLMResponse:
+        with timing.measure("model"):
+            try:
+                return self._complete(system, user, json_schema)
+            except LLMTruncated as exc:
+                limit = self._max_tokens() * 2
+                log.info("%s; asking once more with max_tokens=%d", exc, limit)
+                with output_budget(limit):
+                    return self._complete(system, user, json_schema)
+
+    def _complete(self, system: str, user: str, json_schema: dict[str, Any] | None) -> LLMResponse:
+        self._refuse_if_fatal()
+        path, payload = self._build_payload(system, user, json_schema)
+        started = time.monotonic()
+        last_exc: Exception | None = None
+
+        for attempt in range(1, self.cfg.max_retries + 2):
+            try:
+                if isinstance(last_exc, _UnparsableReply):
+                    path, payload = self._build_payload(
+                        system,
+                        f"{user}\n\n=== CORRECTION ===\n"
+                        f"Your previous reply was not valid JSON ({last_exc}). "
+                        "Return one JSON object matching the schema and nothing "
+                        "else. Escape every backslash and quote inside string "
+                        "values — a namespace like Symfony\\\\Component needs its "
+                        "backslashes doubled — and write a line break inside a "
+                        "quoted value as \\n, never as a real newline.",
+                        json_schema,
+                    )
+                resp = self._post(path, payload)
+                self._auth_failure(resp)
+                if resp.status_code in (408, 409, 425, 429) or resp.status_code >= 500:
+                    raise LLMRetryableError(f"{self.name}: HTTP {resp.status_code}: {resp.text[:300]}")
+                if resp.status_code >= 400:
+                    raise LLMError(f"{self.name}: HTTP {resp.status_code}: {resp.text[:500]}")
+                text, ptok, ctok = self._parse(resp.json())
+                if json_schema is not None:
+                    try:
+                        text = to_strict_json(text)
+                    except ValueError as exc:
+                        log.info("%s: попытка %d, JSON для схемы не распознан (%s)", self.name, attempt, exc)
+                        raise _UnparsableReply(
+                            f"{self.name}: ответ не разбирается как JSON: {exc}") from exc
+                self._record_spend(ptok, ctok)
+                return LLMResponse(
+                    text=text,
+                    model=self.model,
+                    prompt_tokens=ptok,
+                    completion_tokens=ctok,
+                    latency_ms=int((time.monotonic() - started) * 1000),
+                    attempts=attempt,
+                    raw=resp.json() if self.cfg.keep_raw_response else {},
+                )
+            except (httpx.TimeoutException, httpx.TransportError, LLMRetryableError) as exc:
+                last_exc = exc
+                if attempt > self.cfg.max_retries:
+                    break
+                time.sleep(min(self.cfg.backoff_base_s * (2 ** (attempt - 1)), self.cfg.backoff_max_s))
+
+        raise LLMRetryableError(f"{self.name}: exhausted {self.cfg.max_retries} retries: {last_exc}") from last_exc
+
+    _NATIVE_TOOLS = False
+
+    @property
+    def supports_tools(self) -> bool:
+        """Whether this client can hold a native tool-calling conversation."""
+        return (self._NATIVE_TOOLS and bool(getattr(self.cfg, "tool_calling", True))
+                and not self._native_tools_rejected)
+
+    def _tool_payload(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> tuple[str, dict[str, Any]]:
+        raise NotImplementedError
+
+    def _tool_parse(self, body: dict[str, Any]) -> ToolTurn:
+        raise NotImplementedError
+
+    def tool_result_message(self, call: ToolCall, content: str) -> dict[str, Any]:
+        """The message that hands a tool's output back to the model."""
+        raise NotImplementedError
+
+    def chat_tools(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> ToolTurn:
+        """One turn of a native tool-calling conversation, with the usual retries."""
+        with timing.measure("model"):
+            try:
+                return self._chat_tools(messages, tools)
+            except LLMTruncated as exc:
+                limit = self._max_tokens() * 2
+                log.info("%s; asking once more with max_tokens=%d", exc, limit)
+                with output_budget(limit):
+                    return self._chat_tools(messages, tools)
+
+    def _chat_tools(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> ToolTurn:
+        if not self.supports_tools:
+            raise LLMError(f"{self.name}: tool calling is not enabled for this provider")
+        self._refuse_if_fatal()
+        path, payload = self._tool_payload(messages, tools)
+        started = time.monotonic()
+        last_exc: Exception | None = None
+        for attempt in range(1, self.cfg.max_retries + 2):
+            try:
+                resp = self._post(path, payload)
+                self._auth_failure(resp)
+                if resp.status_code in (408, 409, 425, 429) or resp.status_code >= 500:
+                    raise LLMRetryableError(f"{self.name}: HTTP {resp.status_code}: {resp.text[:300]}")
+                if resp.status_code >= 400:
+                    error_text = resp.text[:500]
+                    if resp.status_code == 400 and ("tool" in error_text.lower() or "function" in error_text.lower()):
+                        self._native_tools_rejected = True
+                        raise LLMError(f"{self.name}: HTTP 400 tool rejection: {error_text}")
+                    raise LLMError(f"{self.name}: HTTP {resp.status_code}: {error_text}")
+                turn = self._tool_parse(resp.json())
+                turn.latency_ms = int((time.monotonic() - started) * 1000)
+                turn.attempts = attempt
+                self._record_spend(turn.prompt_tokens, turn.completion_tokens)
+                return turn
+            except (httpx.TimeoutException, httpx.TransportError, LLMRetryableError) as exc:
+                last_exc = exc
+                if attempt > self.cfg.max_retries:
+                    break
+                time.sleep(min(self.cfg.backoff_base_s * (2 ** (attempt - 1)), self.cfg.backoff_max_s))
+        raise LLMRetryableError(f"{self.name}: exhausted {self.cfg.max_retries} retries: {last_exc}") from last_exc
+
+    @property
+    def budget_left_usd(self) -> float | None:
+        """What is left of the run's ceiling, or None when no ceiling is set."""
+        ceiling = getattr(self.cfg, "budget_usd", None)
+        if ceiling is None:
+            return None
+        with self._spend_lock:
+            return max(0.0, float(ceiling) - self.spend_usd)
+
+    def _record_spend(self, prompt_tokens: int | None, completion_tokens: int | None) -> None:
+        """Add one answered call to the run total."""
+        cost = self.estimate_cost(prompt_tokens, completion_tokens) or 0.0
+        with self._spend_lock:
+            self.calls += 1
+            self.prompt_tokens_total += prompt_tokens or 0
+            self.completion_tokens_total += completion_tokens or 0
+            self.spend_usd += cost
+
+    def estimate_cost(self, prompt_tokens: int | None, completion_tokens: int | None) -> float | None:
+        pricing = self.cfg.pricing
+        if not pricing or prompt_tokens is None or completion_tokens is None:
+            return None
+        return round(
+            prompt_tokens / 1_000_000 * pricing.get("input_usd_per_mtok", 0.0)
+            + completion_tokens / 1_000_000 * pricing.get("output_usd_per_mtok", 0.0),
+            6,
+        )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()

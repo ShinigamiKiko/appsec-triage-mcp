@@ -1,0 +1,16 @@
+enabled: true
+reachability: true
+required_languages: [php]
+
+max_definitions: 4
+max_callers: 8
+
+startup_timeout_s: 120
+index_timeout_s: 90
+request_timeout_s: 20
+
+servers:
+  php:
+    command: [php, "${PHPACTOR_PHAR:-/opt/phpactor.phar}", language-server]
+    language_id: php
+    extensions: [".php"]

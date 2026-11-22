@@ -1,0 +1,256 @@
+"""Where the application actually runs, and what that is allowed to change."""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import re
+from dataclasses import dataclass, field
+from pathlib import Path, PurePosixPath
+
+import yaml
+
+log = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class PlatformRule:
+    rule: str
+    requires: str
+    why: str
+    sast: bool = False
+
+
+@dataclass(slots=True)
+class OutOfScopeComponent:
+    """A component no service on this platform runs, and the fact that says so.
+
+    The fact is either a platform-wide one (`requires:`, from `facts:`), or the scanned
+    repository itself (`present_if:` — manifests that name the component): a framework one
+    repository is written in and another is not. The second is out of scope only where
+    the repository was read and none of its manifests names the component.
+    """
+
+    id: str
+    requires: str
+    describe: str = ""
+    why: str = ""
+    keywords: list[str] = field(default_factory=list)
+    markers: list[str] = field(default_factory=list)
+    owner: str = "platform-security"
+    present_files: list[str] = field(default_factory=list)
+    present_contains: list[str] = field(default_factory=list)
+    present_at: str | None = None
+    """Where the repository names it (`composer.lock:812 ("laravel/framework")`), "" when it
+    does not, None while no repository was read."""
+    markers_reopen: bool = False
+    """A marker found in the code means the service does use the component (its own TLS
+    listener, say), so the CVE is analysed normally instead of closed. Without it a
+    marker is reported as an anti-pattern next to the closure (SSH)."""
+
+    @property
+    def per_repository(self) -> bool:
+        return bool(self.present_files and self.present_contains)
+
+    @property
+    def basis(self) -> str:
+        """The fact the closure rests on, as the report says it."""
+        if self.per_repository:
+            return (f"в этом репозитории нет {self.id}: ни один из {', '.join(self.present_files)} "
+                    f"не содержит {', '.join(self.present_contains)}")
+        return f"факт среды {self.requires}"
+
+
+@dataclass(slots=True)
+class PhpImageFact:
+    """A PHP base image and a php.ini setting of its FPM, as the operator checked it."""
+
+    image: str
+    """Image reference prefix: `harbor.example/php-fpm/ubuntu/` matches every tag under it."""
+    register_argc_argv: str
+    checked: str = ""
+    """How and when it was checked — shown with every closure that rests on it."""
+
+
+@dataclass(slots=True)
+class DeploymentContext:
+    enabled: bool = False
+    description: str = ""
+    config_path: str | None = None
+    config_sha256: str | None = None
+    facts: dict[str, bool] = field(default_factory=dict)
+    platform_handles: list[PlatformRule] = field(default_factory=list)
+    out_of_scope: list[OutOfScopeComponent] = field(default_factory=list)
+    php_images: list[PhpImageFact] = field(default_factory=list)
+    runtime_platform: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def usable(self) -> bool:
+        return self.enabled and bool(self.description or self.facts)
+
+    def components_out_of_scope(self) -> list[OutOfScopeComponent]:
+        """Entries whose fact is set: platform-wide, or this repository not naming them."""
+        if not self.enabled:
+            return []
+        return [c for c in self.out_of_scope
+                if (c.present_at == "" if c.per_repository
+                    else c.requires and self.facts.get(c.requires) is True)]
+
+    def scope_to(self, roots) -> list[str]:
+        """Read the repository for the per-repository components; one line per component."""
+        from .context.stack import find_marker
+
+        lines = []
+        for component in self.out_of_scope:
+            if not component.per_repository:
+                continue
+            component.present_at = (find_marker(roots, component.present_files, component.present_contains)
+                                    if roots else None)
+            if component.present_at is None:
+                lines.append(f"{component.id}: не проверено — корень исходников не задан")
+            elif component.present_at:
+                lines.append(f"{component.id}: есть ({component.present_at})")
+            else:
+                lines.append(f"{component.id}: нет — CVE только про него закрываются")
+        return lines
+
+    def handled_by_platform(self, rule_id: str | None, *, sast: bool = False) -> PlatformRule | None:
+        """Find the active rule. SAST uses exact IDs for platform-owned checks."""
+        if not rule_id or not self.enabled:
+            return None
+        rule_id = rule_id.lower()
+        for entry in self.platform_handles:
+            if entry.sast != sast or self.facts.get(entry.requires) is not True:
+                continue
+            pattern = entry.rule.lower()
+            if (pattern == rule_id if sast else pattern in rule_id):
+                return entry
+        return None
+
+    def local_configuration(self, file_path: str, rule_id: str | None) -> PlatformRule | None:
+        """Identify configuration excluded by the deployment contract."""
+        if not self.enabled or not file_path:
+            return None
+        path = PurePosixPath(file_path.replace("\\", "/").lower())
+        name_parts = re.split(r"[._-]", path.stem)
+        rule_parts = re.split(r"[./:]", (rule_id or "").lower())
+        if self.facts.get("repository_compose_is_local") is True and path.suffix in {".yml", ".yaml"}:
+            if "compose" in name_parts or any(part in {"docker-compose", "docker_compose"} for part in rule_parts):
+                return PlatformRule(file_path, "repository_compose_is_local",
+                                    "файлы Docker Compose в репозитории используются только локально")
+        if self.facts.get("repository_nginx_is_local") is True:
+            config_name = path.suffix in {"", ".conf", ".inc", ".template", ".tmpl", ".j2"}
+            nginx_path = "nginx" in name_parts or "nginx" in path.parts[:-1]
+            if config_name and (nginx_path or "nginx" in rule_parts):
+                return PlatformRule(file_path, "repository_nginx_is_local",
+                                    "конфиги Nginx в репозитории локальные, production Nginx настраивается вне репозитория")
+        return None
+
+    def render(self) -> str:
+        """The section the model sees."""
+        if not self.usable:
+            return ""
+        lines = [
+            "## Where this runs",
+            "",
+            self.description.strip(),
+            "",
+        ]
+        stated = [name for name, value in self.facts.items() if value is True]
+        if stated:
+            lines += ["Confirmed about the environment:", *(f"- {name.replace('_', ' ')}" for name in stated), ""]
+        if self.runtime_platform:
+            platform = "/".join(value for value in
+                                 (self.runtime_platform.get("os"), self.runtime_platform.get("arch")) if value)
+            lines += [f"Confirmed runtime platform: {platform}", ""]
+        read = [c for c in self.out_of_scope if c.per_repository and c.present_at is not None]
+        if read:
+            lines += ["Read from this repository's manifests:",
+                      *(f"- {c.id}: used ({c.present_at})" if c.present_at
+                        else f"- {c.id}: not used — no {', '.join(c.present_files)} names it" for c in read), ""]
+        lines += [
+            "Use these deployment facts when checking advisory preconditions, exposure,",
+            "and priority. They are operator-provided facts, not guesses from conventions.",
+            "",
+            "- Windows-only issues do not apply to the confirmed Linux container.",
+            "- TLS termination at ingress rules out TLS termination at the application",
+            "  only when the backend connection is confirmed plaintext; check its config.",
+            "- Incoming TLS and outgoing HTTPS, LDAPS, or StartTLS are separate paths.",
+            "- Do not confuse HTTP/2 over TLS with unencrypted HTTP/2 (h2c).",
+            "- Kubernetes/ingress do not by themselves remove injection, SSRF, auth, or DoS risk.",
+            "- A missing or unsearched setting is UNKNOWN, not proof that a feature is disabled.",
+            "- To reject a finding, name the advisory precondition and quote the fact that",
+            "  contradicts it. If the fact is not established, preserve the finding as unresolved.",
+        ]
+        return "\n".join(lines)
+
+
+def load(path: Path | str | None = None) -> DeploymentContext:
+    """Load an explicitly selected deployment contract."""
+    if path is None:
+        return DeploymentContext()
+    path = Path(path).expanduser()
+    if not path.is_file():
+        log.warning("deployment context %s does not exist — deployment facts unavailable", path)
+        return DeploymentContext(config_path=str(path.resolve()))
+    try:
+        raw = path.read_bytes()
+        digest = hashlib.sha256(raw).hexdigest()
+        data = yaml.safe_load(raw.decode("utf-8")) or {}
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        log.warning("cannot read %s: %s — deployment context unavailable", path, exc)
+        return DeploymentContext(config_path=str(path.resolve()))
+
+    facts = {k: v for k, v in (data.get("facts") or {}).items() if isinstance(v, bool)}
+    runtime_platform = {
+        str(k).lower(): str(v).strip().lower()
+        for k, v in (data.get("runtime_platform") or {}).items()
+        if str(k).lower() in {"os", "arch"} and str(v).strip()
+    }
+    handles = [
+        PlatformRule(rule=str(e["rule"]), requires=str(e.get("requires", "")), why=str(e.get("why", "")),
+                     sast=e.get("sast") is True)
+        for e in (data.get("platform_handles") or [])
+        if isinstance(e, dict) and e.get("rule")
+    ]
+    out_of_scope = [
+        OutOfScopeComponent(
+            id=str(e["id"]), requires=str(e.get("requires") or ""),
+            describe=" ".join(str(e.get("describe") or "").split()), why=str(e.get("why") or ""),
+            keywords=[str(k) for k in (e.get("keywords") or []) if str(k).strip()],
+            markers=[str(m) for m in (e.get("markers") or []) if str(m).strip()],
+            owner=str(e.get("owner") or "platform-security"),
+            markers_reopen=e.get("markers_reopen") is True,
+            present_files=[str(f) for f in ((e.get("present_if") or {}).get("files") or []) if str(f).strip()],
+            present_contains=[str(m) for m in ((e.get("present_if") or {}).get("contains") or [])
+                              if str(m).strip()],
+        )
+        for e in (data.get("out_of_scope_components") or [])
+        if isinstance(e, dict) and e.get("id")
+    ]
+    def on_off(value) -> str:
+        # YAML reads a bare Off as false and On as true; php.ini also writes 0/1.
+        text = str(value).strip().lower()
+        if value is True or text in ("on", "1", "true", "yes"):
+            return "On"
+        if value is False or text in ("off", "0", "false", "no"):
+            return "Off"
+        return ""  # anything else is not a stated fact
+
+    php_images = [
+        PhpImageFact(image=str(e["image"]).strip(), register_argc_argv=on_off(e["register_argc_argv"]),
+                     checked=str(e.get("checked") or "").strip())
+        for e in (data.get("php_ini_by_image") or [])
+        if isinstance(e, dict) and str(e.get("image") or "").strip() and on_off(e.get("register_argc_argv")) != ""
+    ]
+    return DeploymentContext(
+        enabled=bool(data.get("enabled", False)),
+        description=str(data.get("description") or ""),
+        config_path=str(path.resolve()),
+        config_sha256=digest,
+        facts=facts,
+        platform_handles=handles,
+        out_of_scope=out_of_scope,
+        php_images=php_images,
+        runtime_platform=runtime_platform,
+    )

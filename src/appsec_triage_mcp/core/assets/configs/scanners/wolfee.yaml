@@ -1,0 +1,5 @@
+mode: native
+binary:
+  - ${WOLFEE_BIN:-../wolfee-cli/bin/wolfee}
+  - wolfee
+timeout_s: 1800
